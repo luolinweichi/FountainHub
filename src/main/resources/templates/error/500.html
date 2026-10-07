@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  ============================================================================
+  500 页面（状态码由 Spring Boot 自动设置）
+  ============================================================================
+  🔒 页面上【不显示任何异常信息】—— 堆栈只进日志（见 GlobalExceptionHandler）。
+     用户看到的只有一句人话 + 一个出口。
+
+  ⚠️⚠️ 【为什么这一页不引用 fragments/layout —— 别改回去】
+     同 404.html：错误页是最后一道防线，它自己绝不能再出错。
+     公共外壳依赖模型数据（`_csrf.token`）与安全上下文（sec:authorize），
+     在错误转发场景下可能不存在 → 外壳渲染失败 → 500 页变成"又一个异常"。
+     ✅ 所以本页故意做成自包含，只依赖 /css/fh.css。
+  ============================================================================
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>服务器出了点问题</title>
+    <!-- ⚠️ 直接写死路径，不走 Thymeleaf 链接表达式 -->
+    <link rel="stylesheet" href="/css/fh.css">
+</head>
+<body>
+<div class="fh-center">
+    <div class="fh-card fh-text-c">
+        <div class="fh-bigcode fh-code-500">500</div>
+        <h1 class="fh-title" style="font-size:24px">服务器出了点问题</h1>
+        <p class="fh-sub">
+            这个错误已经被记录下来。<br>
+            你可以先回首页，或者稍后再试；如果反复出现，请联系社长。
+        </p>
+        <a class="fh-btn fh-btn-main" href="/">回到首页</a>
+    </div>
+</div>
+</body>
+</html>

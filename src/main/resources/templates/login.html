@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  登录页（T-005；T-043 视觉落地）
+  ⭐ 居中单列表单卡，宽度 460–560px（docs/08 §5.2）。
+-->
+<head th:replace="~{fragments/layout :: head('登录')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-center">
+<div class="fh-card">
+    <h1 class="fh-title" th:text="${systemName}">FountainHub</h1>
+    <p class="fh-sub" th:text="'—— ' + ${clubName} + ' 社团管理系统'">—— 【请填写社团名称】 社团管理系统</p>
+
+    <!-- 提示：B 失败 / A 成功（docs/08 §9 的 A–B 两类） -->
+
+    <!--
+        登录失败的提示。
+        Spring Security 验证失败时会把你重定向到 /login?error，
+        所以这里用 ${param.error} 判断地址栏里有没有 error 参数。
+    -->
+    <div th:if="${param.error}" class="fh-alert fh-alert-err">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span>账号或密码错误</span>
+    </div>
+
+    <!-- 主动退出后 Spring Security 会跳到 /login?logout -->
+    <div th:if="${param.logout}" class="fh-alert fh-alert-ok">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span>已退出登录</span>
+    </div>
+
+    <!-- 改完密码后 PasswordController 会跳到 /login?passwordChanged（T-008） -->
+    <div th:if="${param.passwordChanged}" class="fh-alert fh-alert-ok">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span>密码已修改，请用新密码登录</span>
+    </div>
+
+    <!--
+        ⚠️⚠️ 这里必须写 th:action，不能写普通的 action ⚠️⚠️
+
+        Spring Security 默认开启 CSRF 防护。用 th:action 时，Thymeleaf 会自动
+        往表单里插入一个隐藏字段（CSRF token）；如果写成 action="/login"，
+        这个隐藏字段就不会出现 —— 提交会被服务器以 403 拒绝，
+        表现为"密码明明是对的却永远登录不上"，而且报错信息很难看懂。
+
+        类比：CSRF token 像"取货码"，表单不带它，服务器就认为是伪造请求。
+    -->
+    <form th:action="@{/login}" method="post">
+
+        <div style="margin-bottom:14px">
+            <label for="username">账号</label>
+            <!--
+                name 必须叫 username —— 这是 Spring Security 默认读取的参数名。
+                用户在这一栏里填 用户名 / 学号 / 手机号 中的任意一个都可以，
+                具体是哪种，由 T-006 的登录逻辑去判断。
+            -->
+            <input type="text" id="username" name="username"
+                   placeholder="用户名 / 学号 / 手机号" required autofocus>
+            <span class="form-text">三种任选其一都可以</span>
+        </div>
+
+        <div style="margin-bottom:14px">
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <button type="submit" class="fh-btn fh-btn-main" style="width:100%">登 录</button>
+    </form>
+
+    <p class="fh-sub" style="margin:18px 0 0;text-align:center;font-size:12px">
+        <a th:href="@{/forgot}">忘记密码</a>
+    </p>
+</div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

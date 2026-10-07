@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!--
+  后台获奖管理（T-032 / M8）。
+  ⚠️ 本页【只显示】公开意愿，不提供勾选框 ——
+     红线：获奖对外展示必须经【该学员本人】同意，管理员不能替他表态。
+     所以开关在学员端 /me/awards，这里只是"看状态"。
+  ⚠️ 成员只显示姓名 + 角色，【绝不显示手机号】（全站红线）。
+-->
+<head th:replace="~{fragments/layout :: head('获奖管理')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">获奖管理</h1>
+    <p class="fh-sub">
+        共 <b th:text="${totalCount}">0</b> 条记录。团队奖可以一条关联多位学员；
+        🔒 <b>是否对外公开由每位学员本人在「我的获奖」里自己决定</b>，这里只能看状态。
+    </p>
+
+    <!-- 提示：A 成功 / B 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <!-- 筛选（GET，不用 JS） -->
+    <div class="fh-card">
+        <form method="get" th:action="@{/admin/awards}" class="fh-flex">
+            <label>级别
+                <select name="level" style="width:auto">
+                    <option value="">全部</option>
+                    <option th:each="l : ${levels}" th:value="${l.name()}" th:text="${l.label}"
+                            th:selected="${filterLevel == l.name()}">省级</option>
+                </select>
+            </label>
+            <label>年份
+                <select name="year" style="width:auto">
+                    <option value="">全部</option>
+                    <option th:each="y : ${years}" th:value="${y}" th:text="${y}"
+                            th:selected="${filterYear == #strings.toString(y)}">2026</option>
+                </select>
+            </label>
+            <button type="submit" class="fh-btn">筛选</button>
+            <a class="fh-btn" th:href="@{/admin/awards}">重置</a>
+            <a class="fh-btn fh-btn-main" style="margin-left:auto" th:href="@{/admin/awards/new}">
+                <svg style="width:15px;height:15px" th:replace="~{fragments/icons :: ic-plus}"></svg>录入获奖
+            </a>
+        </form>
+    </div>
+
+    <!-- 空状态（D 类 · 无数据：平静的灰，不是"期待感"那套） -->
+    <div class="fh-empty" th:if="${#lists.isEmpty(rows)}">
+        <svg th:replace="~{fragments/icons :: ic-star}"></svg>
+        <div class="fh-empty-title">还没有获奖记录</div>
+        <div>点右上角「录入获奖」记第一条；团队奖可以一条关联多位学员。</div>
+    </div>
+
+    <table class="fh-table" th:unless="${#lists.isEmpty(rows)}">
+        <thead>
+        <tr>
+            <th>比赛</th>
+            <th style="width:96px">级别</th>
+            <th style="width:96px">奖项</th>
+            <th style="width:110px">获奖日期</th>
+            <th>参与学员（公开意愿）</th>
+            <th style="width:72px">证书</th>
+            <th style="width:130px">操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="r : ${rows}">
+            <td>
+                <b th:text="${r.award.competitionName}">比赛名称</b>
+                <div class="fh-hint">
+                    <span th:text="${r.award.organizer} ?: '举办方未填'">举办方</span>
+                    <span th:if="${r.award.advisorName != null}"
+                          th:text="| · 指导老师：${r.award.advisorName}|"></span>
+                </div>
+            </td>
+            <td><span class="fh-badge fh-cat" th:text="${r.award.awardLevel.label}">省级</span></td>
+            <td><span class="fh-badge fh-tag-gold" th:text="${r.award.prize.label}">一等奖</span></td>
+            <td class="mono" th:text="${r.award.awardDate} ?: '—'">2026-10-01</td>
+            <td>
+                <span th:each="m : ${r.members}" class="fh-badge"
+                      th:classappend="${m.isPublic} ? ' fh-pub' : ''"
+                      style="margin:2px 4px 2px 0">
+                    <span th:text="${m.name}">姓名</span>
+                    <span class="fh-hint" th:text="|（${m.roleLabel}）|">（学员）</span>
+                    <span th:text="${m.isPublic} ? '已同意公开' : '未同意'">未同意</span>
+                </span>
+                <span class="fh-hint" th:if="${r.memberCount == 0}">⚠️ 还没有关联学员</span>
+                <div class="fh-hint" th:text="|共 ${r.memberCount} 人，其中 ${r.publicCount} 人同意公开|"></div>
+            </td>
+            <td th:text="|${r.imageCount} 张|">0 张</td>
+            <td class="fh-ops">
+                <a th:href="@{/admin/awards/{id}/edit(id=${r.award.id})}">编辑</a>
+                <!-- 🔒 副社长看不到这个按钮（后端还有第二道锁：@PreAuthorize 只放 TEACHER/PRESIDENT） -->
+                <form sec:authorize="hasAnyRole('TEACHER','PRESIDENT')"
+                      th:action="@{/admin/awards/{id}/delete(id=${r.award.id})}" method="post" style="display:inline"
+                      onsubmit="return confirm('确定删除这条获奖吗？关联的学员名单与证书记录会一起删掉（磁盘上的图片文件保留）。');">
+                    <button type="submit" class="fh-danger">删除</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

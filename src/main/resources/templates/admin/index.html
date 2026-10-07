@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!-- 后台总览（T-022 / FR-11.1；T-043 视觉落地）—— 社长一进来就看到全社情况。
+     🔄 2026-10-04：「本周做题」KPI 与「做题排行榜」已删除（学习功能整体下线，题库是二期才有数据）。 -->
+<head th:replace="~{fragments/layout :: head('后台总览')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">后台总览</h1>
+
+    <!-- ===== KPI 卡（标签 12px 灰 + 数值 30px 等宽；docs/08 §8） ===== -->
+    <div class="fh-metrics">
+        <div class="fh-metric">
+            <div class="fh-metric-label">在社学员</div>
+            <div class="fh-metric-value"><b th:text="${studentCount}">0</b><small>人</small></div>
+        </div>
+        <div class="fh-metric">
+            <div class="fh-metric-label">本周签到</div>
+            <div class="fh-metric-value"><b th:text="${weekCheckins}">0</b><small>次</small></div>
+        </div>
+        <div class="fh-metric">
+            <div class="fh-metric-label">考勤活动</div>
+            <div class="fh-metric-value"><b th:text="${eventCount}">0</b><small>场</small></div>
+        </div>
+        <div class="fh-metric">
+            <div class="fh-metric-label">获奖记录</div>
+            <div class="fh-metric-value"><b th:text="${awardCount}">0</b><small>条</small></div>
+            <div class="fh-metric-note">
+                <a th:href="@{/admin/awards}">去管理 →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 各组人数 ===== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">各组人数</p>
+        <div class="fh-groups">
+            <div class="fh-groupbox" th:each="g : ${groupRows}">
+                <div class="fh-groupname" th:text="${g.name}">示例组</div>
+                <div class="fh-groupnum"><b th:text="${g.count}">0</b> 人</div>
+            </div>
+            <div class="fh-groupbox fh-groupbox-gray">
+                <div class="fh-groupname">未分组</div>
+                <div class="fh-groupnum"><b th:text="${ungrouped}">0</b> 人</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 导出名单（T-036 / FR-11.3）=====
+         🔒 两个文件都不含手机号；格式是 CSV（UTF-8 BOM，Excel/WPS 双击可开） */}
+    <div class="fh-card">
+        <p class="fh-sec-title">导出名单</p>
+        <div class="fh-flex">
+            <a class="fh-btn fh-btn-main" th:href="@{/admin/export/students}">导出 · 学员名单</a>
+            <a class="fh-btn fh-btn-outline" th:href="@{/admin/export/awards}">导出 · 获奖清单</a>
+        </div>
+        <p class="fh-sub" style="margin:14px 0 0">
+            格式：<b>CSV</b>（UTF-8 BOM，Excel / WPS 双击即可打开）。
+            🔒 两份都<b>不含手机号</b>；学员名单带「状态」列（可分辨待审核 / 在读），
+            获奖清单带「同意公开人数 / 总人数」列（一眼看出哪些内容可以对外发）。
+            考勤表在 <a th:href="@{/admin/attendance}">考勤管理</a> 页导出。
+        </p>
+    </div>
+
+    <!-- ===== 快捷入口（图标改内联 SVG）===== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">快捷入口</p>
+        <div class="fh-quick">
+            <a th:href="@{/admin/students}"><svg th:replace="~{fragments/icons :: ic-users}"></svg>学员列表</a>
+            <a th:href="@{/admin/groups}"><svg th:replace="~{fragments/icons :: ic-folder}"></svg>分组管理</a>
+            <a th:href="@{/admin/attendance}"><svg th:replace="~{fragments/icons :: ic-calendar}"></svg>考勤管理</a>
+            <a th:href="@{/admin/news}"><svg th:replace="~{fragments/icons :: ic-news}"></svg>新闻管理</a>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  学员列表（T-010 / T-011；T-043 视觉落地）
+  ⚠️⚠️ 表格里【绝对不允许出现手机号】⚠️⚠️
+      这是 docs/spec.md 第 3.3 节的硬性红线。
+      做法上干脆"不查、不传、不显示"：下面六列里没有任何一个是 phone。
+      以后要加列时，请先想清楚这一列会不会泄露隐私。
+-->
+<head th:replace="~{fragments/layout :: head('学员列表')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page">
+    
+    <!-- ==================== 待审核的改密申请（T-012B + 2026-10-07 三层审核）====================
+         ⚠️ 需求方要求：**不另做审核页** —— 就放在「入社申请」审核的同一个地方。
+         🔒 审核【通过】才把新密码写回 users；【拒绝】则旧密码继续有效。
+
+         谁能审（2026-10-07 项目负责人定；规则写在 security/PasswordResetReviewPolicy）：
+             学员 / 组长      → 指导老师 · 正社长 · 副社长（「副社长算社长」）
+             正社长 / 副社长   → **只有指导老师**
+             指导老师         → 页面审不了，只能由维护人员直接改数据库
+
+         ⚠️⚠️ 这里只是"按权限显示按钮"，**真正挡住越权的是后端**
+              （AdminPasswordResetController：审不了就抛 AccessDeniedException → 403 页面）。
+              别以为藏了按钮就安全 —— 别人照样能直接 POST 那个审核地址。
+         🔄 顺带修掉的老问题：原来申请人那列显示的是 ${r.userId} 一个数字，
+              审核的人根本不知道在审谁 → 现在显示姓名 + 角色。
+    -->
+    <div class="fh-card" th:if="${!#lists.isEmpty(resetRows)}" style="border-left:4px solid var(--fh-warn-fg,#B7791F)">
+        <p class="fh-sec-title">⏳ 待审核的改密申请</p>
+        <table class="fh-table">
+            <thead><tr><th>申请人</th><th>角色</th><th>提交时间</th><th>操作</th></tr></thead>
+            <tbody>
+            <tr th:each="row : ${resetRows}">
+                <td th:text="${row['applicantName']}">姓名</td>
+                <td th:text="${row['applicantRole']}">角色</td>
+                <td th:text="${#temporals.format(row['req'].createdAt, 'yyyy-MM-dd HH:mm')}">时间</td>
+                <td class="fh-ops">
+                    <!-- 我能审 → 给按钮 -->
+                    <th:block th:if="${row['canReview']}">
+                        <form th:action="@{/admin/students/reset/{rid}/approve(rid=${row['req'].id})}" method="post" style="display:inline">
+                            <button type="submit" class="fh-btn fh-btn-main fh-btn-sm">通过</button>
+                        </form>
+                        <form th:action="@{/admin/students/reset/{rid}/reject(rid=${row['req'].id})}" method="post" style="display:inline;margin-left:6px">
+                            <button type="submit" class="fh-btn fh-btn-sm">拒绝</button>
+                        </form>
+                    </th:block>
+                    <!-- 我审不了 → 说清为什么（不要给一个点了没反应的按钮） -->
+                    <span th:unless="${row['canReview']}" class="fh-hint"
+                          th:text="${row['sqlOnly']} ? '页面审不了 —— 需维护人员直接处理' : '只有指导老师能审'">—</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+<div class="fh-card">
+
+        <h1 class="fh-title">学员列表</h1>
+        <p class="fh-sub">
+            共 <b th:text="${userPage.totalElements}">0</b> 人
+            <span class="fh-sep">|</span>
+            第 <b th:text="${userPage.number + 1}">1</b> / <b th:text="${userPage.totalPages}">1</b> 页
+        </p>
+
+        <!--
+            筛选表单：用 method="get"
+              为什么用 GET 而不是 POST：筛选是"查询"，把条件放进 URL 里，
+              好处是【刷新不丢条件】、【能把链接发给别人】、浏览器前进后退也好用。
+              只有【会改数据】的操作（新增/删除/改密码）才用 POST。
+        -->
+        <form class="fh-formrow" method="get" th:action="@{/admin/students}">
+            <input type="text" name="kw" th:value="${kw}"
+                   placeholder="姓名或学号，如 test / 2024001">
+
+            <select name="status">
+                <option value="">全部状态</option>
+                <option th:each="s : ${allStatuses}"
+                        th:value="${s.name()}"
+                        th:text="${s.label}"
+                        th:selected="${status != null and status == s.name()}">在读</option>
+            </select>
+
+            <!-- T-016：按组筛选。空值 = 全部（UserSpecifications.group 会忽略这个条件） -->
+            <select name="groupId">
+                <option value="">全部小组</option>
+                <option th:each="g : ${allGroups}"
+                        th:value="${g.id}"
+                        th:text="${g.name}"
+                        th:selected="${groupId != null and groupId == g.id}">示例组</option>
+            </select>
+
+            <button type="submit" class="fh-btn fh-btn-main">搜索</button>
+            <a th:href="@{/admin/students}" class="fh-btn fh-btn-ghost">重置</a>
+
+            <!-- T-045：手工补录学员（后台建号 + 建档）—— 一次建好，默认「在读」 -->
+            <a th:href="@{/admin/students/new}" class="fh-btn fh-btn-main"
+               style="margin-left:auto" title="手工补录一名学员（建账号 + 建档案）">
+                ➕ 手工补录学员
+            </a>
+
+            <!-- T-036：导出全部学员（CSV）。⚠️ 注意它是「全部学员」，
+                 不跟随上面的筛选条件 —— 导出就是导全量名单，避免"筛了才发现导少了"。
+                 🔒 文件里不含手机号。 -->
+            <a th:href="@{/admin/export/students}" class="fh-btn fh-btn-outline"
+               title="导出全部学员名单（CSV，不含手机号）">
+                导出名单
+            </a>
+        </form>
+
+        <!-- 空状态（D 类 · 无结果）—— 给"清空筛选"的出路，而不是只说"没有" -->
+        <div class="fh-empty" th:if="${userPage.empty}">
+            <svg th:replace="~{fragments/icons :: ic-search}"></svg>
+            <div class="fh-empty-title">没有符合条件的学员</div>
+            <div>换个关键词，或者 <a th:href="@{/admin/students}">清空筛选条件</a>。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${userPage.empty}">
+            <thead>
+            <tr>
+                <th>姓名</th>
+                <th>学号</th>
+                <th>组</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="u : ${userPage.content}">
+                <!-- 姓名点进去 = 学员详情页（T-012） -->
+                <td><a th:href="@{/admin/students/{uid}(uid=${u.id})}"
+                       th:text="${u.realName}">张三</a></td>
+                <!-- 老师账号没有学号，显示一个破折号，别显示 null -->
+                <td class="mono" th:text="${u.studentNo} ?: '—'">2024001</td>
+                <!--
+                    T-016：所属组。u.groupId 是裸 Long（见 CODE_MAP 6.2 的设计决定），
+                    所以用 Controller 传进来的 groupNames（id → 组名）翻成名字。
+                    没分组就显示破折号。
+                -->
+                <td th:text="${u.groupId != null ? (groupNames[u.groupId] ?: '—') : '—'}">—</td>
+                <td th:text="${u.role.label}">学员</td>
+                <td>
+                    <!-- 三种状态三种底色 + 小圆点：在读=绿、待审核=黄、其他=红 -->
+                    <span class="tag"
+                          th:classappend="${u.status.name() == 'ACTIVE'} ? 'active'
+                                          : (${u.status.name() == 'PENDING'} ? 'pending' : 'off')"
+                          th:text="${u.status.label}">在读</span>
+                </td>
+                <td>
+                    <!--
+                        只有「待审核」的人才有这两个按钮。
+                        ⚠️ 必须是 POST 表单：这两个动作会改数据，
+                           而且 Thymeleaf 的 th:action 会自动带上 CSRF token。
+                        ⚠️ 路径变量写法 `@{/admin/students/{uid}/approve(uid=${u.id})}` ——
+                           不能写成 `${/admin/students/${u.id}/approve}`（会被当变量表达式算，直接 500）。
+                    -->
+                    <form th:if="${u.status.name() == 'PENDING'}"
+                          th:action="@{/admin/students/{uid}/approve(uid=${u.id})}"
+                          method="post" style="display:inline">
+                        <button type="submit" class="fh-btn fh-btn-main fh-btn-sm">通过</button>
+                    </form>
+                    <form th:if="${u.status.name() == 'PENDING'}"
+                          th:action="@{/admin/students/{uid}/reject(uid=${u.id})}"
+                          method="post" style="display:inline">
+                        <button type="submit" class="fh-btn fh-btn-sm" style="border-color:var(--fh-err-fg);color:var(--fh-err-fg)">拒绝</button>
+                    </form>
+                    <span th:unless="${u.status.name() == 'PENDING'}" class="fh-none">—</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <!-- 分页控件：链接里带着当前的筛选条件，翻页时条件不丢 -->
+        <div class="fh-pager" th:if="${userPage.totalPages > 1}">
+            <a th:if="${!userPage.first}"
+               th:href="@{/admin/students(kw=${kw}, status=${status}, groupId=${groupId}, page=${userPage.number - 1})}">‹ 上一页</a>
+            <span class="fh-off" th:unless="${!userPage.first}">‹ 上一页</span>
+
+            <span class="fh-hint" th:text="'第 ' + ${userPage.number + 1} + ' / ' + ${userPage.totalPages} + ' 页'">第 1 / 1 页</span>
+
+            <a th:if="${!userPage.last}"
+               th:href="@{/admin/students(kw=${kw}, status=${status}, groupId=${groupId}, page=${userPage.number + 1})}">下一页 ›</a>
+            <span class="fh-off" th:unless="${!userPage.last}">下一页 ›</span>
+        </div>
+
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

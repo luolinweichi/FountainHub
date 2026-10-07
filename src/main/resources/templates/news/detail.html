@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  新闻详情（T-026；T-043 视觉落地）
+  正文是 Markdown，用 T-024 那个渲染器（先转义再解析，防 XSS）。
+  ⚠️ 正文行长控制在 640–760px（docs/08 §4.3），由 .fh-article 负责。
+-->
+<head th:replace="~{fragments/layout :: head(${news.title})}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <p class="fh-sub"><a th:href="@{/news}">← 返回新闻列表</a></p>
+    <div class="fh-card">
+        <h1 class="fh-title" th:text="${news.title}">标题</h1>
+        <p class="fh-newsmeta" style="margin-bottom:18px">
+            <span class="fh-cat" th:text="${news.category.label}">通知</span>
+            <span th:if="${news.isTop}" class="fh-top">置顶</span>
+            <span th:if="${news.isInternal}" class="fh-internal">仅登录可见</span>
+            <span class="mono" th:text="${#temporals.format(news.publishedAt, 'yyyy-MM-dd HH:mm')}">2026-10-02</span>
+        </p>
+        <img class="fh-cover" th:if="${news.coverImage != null}" th:src="${news.coverImage}" alt="封面">
+        <!-- 正文：Markdown 原文放在隐藏的 textarea 里，交给 md.js 渲染 -->
+        <textarea id="mdSource" style="display:none" th:text="${news.content}"></textarea>
+        <div id="mdBody" class="fh-article"><p class="fh-hint">正在渲染…</p></div>
+    </div>
+</div>
+
+<script th:src="@{/js/md.js}"></script>
+<script>
+  (function () {
+      var src = document.getElementById("mdSource").value;
+      document.getElementById("mdBody").innerHTML = mdToHtml(src);
+  })();
+</script>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

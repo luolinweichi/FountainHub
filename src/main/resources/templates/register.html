@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  学员注册（T-011；T-043 视觉落地）
+  ⭐ 居中宽表单卡（620px），分两组：登录信息（必填）+ 档案信息（选填）。
+  🔒 手机号只用于登录和联系，**绝不会显示在任何页面上**。
+-->
+<head th:replace="~{fragments/layout :: head('学员注册')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-center fh-center-wide">
+<div class="fh-card">
+    <h1 class="fh-title">学员注册</h1>
+    <p class="fh-sub">
+        <span th:text="${systemName}">FountainHub</span> ·
+        <span th:text="${clubName}">【请填写社团名称】</span> 社团管理系统<br>
+        提交后需要<b>社长审核</b>，审核通过才能登录。
+    </p>
+
+    <!-- 提示：A 成功 -->
+    <div th:if="${param.submitted}" class="fh-alert fh-alert-ok">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span>
+            <b>提交成功！</b>你的申请已送出，请等待社长审核通过后再登录。
+            <span style="display:block;margin-top:6px"><a th:href="@{/login}">→ 去登录页</a></span>
+        </span>
+    </div>
+
+    <!-- 提示：B 失败 -->
+    <div th:if="${error}" class="fh-alert fh-alert-err">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">出错了</span>
+    </div>
+
+    <div th:unless="${param.submitted}">
+    <!--
+        ⚠️ 必须用 th:action（不是 action）—— 它会自动插入 CSRF 隐藏字段。
+        写成普通 action，提交会被 403 拒绝。
+    -->
+    <form th:action="@{/register}" method="post">
+
+        <p class="fh-sec-title" style="margin-top:8px">登录信息</p>
+
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="req" for="realName">真实姓名</label>
+                <input type="text" id="realName" name="realName"
+                       th:value="${realName}" required autofocus>
+            </div>
+
+            <div class="col-md-6">
+                <label class="req" for="studentNo">学号</label>
+                <input type="text" id="studentNo" name="studentNo"
+                       th:value="${studentNo}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="req" for="username">用户名</label>
+                <input type="text" id="username" name="username"
+                       th:value="${username}" required>
+            </div>
+
+            <div class="col-12">
+                <label class="req" for="phone">手机号</label>
+                <input type="text" id="phone" name="phone"
+                       th:value="${phone}" placeholder="11 位，以 1 开头" required>
+                <span class="form-text fh-flex">
+                    <svg style="width:14px;height:14px" th:replace="~{fragments/icons :: ic-lock}"></svg>
+                    仅用于登录和联系，<b>绝不会显示在任何页面上</b>
+                </span>
+            </div>
+
+            <div class="col-md-6">
+                <label class="req" for="password">密码</label>
+                <input type="password" id="password" name="password" required>
+                <span class="form-text">至少 8 位</span>
+            </div>
+
+            <div class="col-md-6">
+                <label class="req" for="confirmPassword">再输一次密码</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required>
+            </div>
+        </div>
+
+        <p class="fh-sec-title" style="margin-top:26px">档案信息（选填，之后也能改）</p>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="grade">年级</label>
+                <input type="text" id="grade" name="grade"
+                       th:value="${grade}" placeholder="如 2025级">
+            </div>
+
+            <div class="col-md-6">
+                <label for="majorClass">专业 / 班级</label>
+                <input type="text" id="majorClass" name="majorClass" th:value="${majorClass}">
+            </div>
+
+            <div class="col-md-4">
+                <label for="qq">QQ</label>
+                <input type="text" id="qq" name="qq" th:value="${qq}">
+            </div>
+
+            <div class="col-md-4">
+                <label for="wechat">微信</label>
+                <input type="text" id="wechat" name="wechat" th:value="${wechat}">
+            </div>
+
+            <div class="col-md-4">
+                <label for="email">邮箱</label>
+                <input type="text" id="email" name="email" th:value="${email}">
+            </div>
+
+            <div class="col-md-7">
+                <label for="languages">擅长的编程语言</label>
+                <input type="text" id="languages" name="languages"
+                       th:value="${languages}" placeholder="多个用英文逗号隔开（示例：Python,C++）">
+            </div>
+
+            <div class="col-md-5">
+                <label for="level">当前阶段</label>
+                <select id="level" name="level" class="form-select">
+                    <option value="">（暂不填）</option>
+                    <option th:each="lv : ${allLevels}"
+                            th:value="${lv.name()}"
+                            th:text="${lv.label}"
+                            th:selected="${level != null and level == lv.name()}">入门</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="fh-btn fh-btn-main" style="width:100%;margin-top:24px">提交注册申请</button>
+    </form>
+
+    <p class="fh-sub" style="margin:18px 0 0;text-align:center">
+        <a th:href="@{/login}">← 已有账号？去登录</a>
+    </p>
+    </div>
+</div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

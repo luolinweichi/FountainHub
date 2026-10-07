@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  「我的考勤」+ 签到日历（T-019；T-043 视觉落地）
+
+  ⭐ 为什么不用 ECharts 了（重要）
+     ① 原来没数据的格子用 #ebedf0（极浅灰）+ 3px 白边，画在白卡片上【几乎看不见】；
+     ② 更严重的是：在项目负责人的浏览器里【整个图压根没画出来】（一片空白），
+        而 AI 的开发沙箱没有外网，根本没法调试浏览器里的 JS / CDN。
+     所以改成后端算好颜色、直接吐 HTML 格子 —— 不依赖 CDN、不依赖 JS，永远不会白。
+
+  ⭐ 日历排版：7 行 = 周一~周日，一列 = 一周（颜色由后端算好，见 util/CalendarGrid）。
+     🔄 T-043：已签到颜色由绿改为【品牌蓝 #145AFF】（docs/08 §3.3）。
+
+  🔄 2026-10-04：**学习热力图已撤掉**（项目负责人决定：题库二期才有数据，其他社团用不上），
+     空出来的位置改成把**同一张签到日历**画在 /me（我的主页）上 ——
+     两处共用 service/AttendanceCalendarService.fillCalendarCard，**规则只有一份**。
+     ⚠️ 下面日历那一段 HTML 与 me/index.html 里的**刻意保持重复**（全套模板唯一一处）：
+        两个页面的「年份左右箭头」链接地址不同（/me/attendance vs /me）→ **改一处要一起改**。
+-->
+<head th:replace="~{fragments/layout :: head('我的考勤')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">我的考勤</h1>
+
+    <!-- ===== 提示：A 成功 / B 失败（docs/08 §9 的 A–B 两类）===== -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <!-- ===== 今天有没有活动 → 给个签到按钮 ===== -->
+    <div class="fh-card" th:if="${!#lists.isEmpty(weekEvents)}">
+        <div th:each="e : ${weekEvents}" th:if="${e.eventDate.toString() == today.toString()}">
+            <p style="margin:0 0 6px;font-size:16px">
+                <b th:text="${e.title}">日常开放</b>
+                <span class="fh-tag" th:text="${e.type.label}">日常开放（自愿）</span>
+            </p>
+            <p class="fh-sub" th:if="${e.description != null}" th:text="${e.description}">说明</p>
+
+            <!-- 已签到：绿色状态文字 + 图标（颜色 + 文字双通道） -->
+            <p class="fh-ok fh-flex" style="margin:8px 0 0" th:if="${recordByEvent[e.id] != null}">
+                <svg style="width:16px;height:16px" th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+                你今天已经签到了
+            </p>
+
+            <form th:unless="${recordByEvent[e.id] != null}"
+                  th:action="@{/me/attendance/{id}(id=${e.id})}" method="post">
+                <button type="submit" class="fh-btn fh-btn-main">签 到</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== ⭐ 签到日历（服务端 CSS 格子） ==================== -->
+    <div class="fh-card fh-cal-card">
+        <div class="fh-stats">
+            <div class="fh-stat"><div class="fh-stat-label">今日签到</div>
+                <div class="fh-stat-value">
+                    <span class="fh-ok" th:if="${todaySigned}">已签到</span>
+                    <span th:unless="${todaySigned}">--</span>
+                </div></div>
+            <div class="fh-stat"><div class="fh-stat-label">本周签到</div>
+                <div class="fh-stat-value"><b th:text="${weekDays}">0</b> 次</div></div>
+            <div class="fh-stat"><div class="fh-stat-label">累计签到</div>
+                <div class="fh-stat-value"><b th:text="${totalDays}">0</b> 天</div></div>
+            <div class="fh-stat-right">
+                <a class="fh-year" th:href="@{/me/attendance(year=${prevYear})}">‹</a>
+                <span class="fh-yearlabel" th:text="${selectedYear} + '年'">2026年</span>
+                <a class="fh-year" th:href="@{/me/attendance(year=${nextYear})}">›</a>
+            </div>
+        </div>
+
+        <!-- 月份表头（每个月占几列，正好和下面的格子对齐） -->
+        <div class="fh-row fh-row-label">
+            <span class="fh-rowname"></span>
+            <span class="fh-months">
+                <span th:each="mo : ${monthSpans}" th:style="'flex:' + ${mo.span} + ' 0 0'" th:text="${mo.label}">1月</span>
+            </span>
+        </div>
+
+        <!-- 7 行格子：周一 ~ 周日 -->
+        <div class="fh-row" th:each="row, st : ${calendarRows}">
+            <span class="fh-rowname" th:text="${weekdayLabels[st.index]}">周一</span>
+            <span class="fh-cells">
+                <span class="fh-cell" th:each="c : ${row}"
+                      th:style="'background:' + ${c.color}"
+                      th:title="${c.tip}"></span>
+            </span>
+        </div>
+
+        <div class="fh-cal-foot">
+            <div>
+                <span>最长连续签到：<b th:text="${weekStreak}">0</b> 周<span class="fh-hint">（按例行活动算）</span></span>
+                <span class="fh-sep">|</span>
+                <span>最近一次签到：<b th:text="${lastCheckin}">--</b></span>
+            </div>
+            <!-- 图例：仅两色（未签到浅灰 / 已签到品牌蓝）—— 色值与格子同源 -->
+            <div class="fh-legend2">
+                <span><i class="fh-box" style="background:#DDE3E7"></i>未签到</span>
+                <span><i class="fh-box" style="background:#145AFF"></i>已签到</span>
+            </div>
+        </div>
+
+        <p class="fh-encourage" th:text="${encourage}">好的开始，继续保持</p>
+        <p class="fh-encourage fh-encourage-gold" th:if="${everyDayThisWeek}">这周有活动的日子你天天都来了，真拼！</p>
+        <p class="fh-sub" style="margin:12px 0 0">
+            这个图看的是「<b>你到场了没有</b>」；同一张图也显示在 <b>我的主页</b> 上。
+        </p>
+    </div>
+
+    <!-- ==================== 本周活动 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">本周活动</p>
+
+        <!-- 空状态（D 类 · 无数据）：这周还没安排活动 -->
+        <div class="fh-empty" th:if="${#lists.isEmpty(weekEvents)}">
+            <svg th:replace="~{fragments/icons :: ic-calendar}"></svg>
+            <div class="fh-empty-title">本周还没有考勤活动</div>
+            <div>社长创建活动后，这里会显示出来。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${#lists.isEmpty(weekEvents)}">
+            <thead><tr><th>日期</th><th>活动</th><th>类型</th><th>我</th></tr></thead>
+            <tbody><tr th:each="e : ${weekEvents}">
+                <td class="mono" th:text="${#temporals.format(e.eventDate, 'MM-dd')}">10-01</td>
+                <td th:text="${e.title}">例行活动</td>
+                <td th:text="${e.type.label}">例行活动（必到）</td>
+                <td>
+                    <span class="tag active" th:if="${recordByEvent[e.id] != null}">已签到</span>
+                    <span class="tag" th:unless="${recordByEvent[e.id] != null}">未签到</span>
+                </td>
+            </tr></tbody>
+        </table>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

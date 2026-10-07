@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  公共外壳（Thymeleaf fragment）—— T-043 视觉落地重写版
+  ============================================================================
+  【为什么要这个文件】
+    导航栏要在【每个页面】上都出现。如果每个页面各复制一份，
+    就是同一段 HTML 写 20 多遍 —— 改一个链接要改 20 多个地方。
+
+  【怎么用】页面里只要三行：
+      <head th:replace="~{fragments/layout :: head('登录')}"></head>
+      ...
+      <nav th:replace="~{fragments/layout :: nav}"></nav>
+      <div class="fh-page"> ... 页面自己的内容 ... </div>
+
+  ⚠️⚠️【改这个文件前必读 —— 它踩过 3 个坑，都是在这里】
+    ① 样式"丢失"过：从 git 恢复本文件时把新加的 <style> 一起抹掉了；
+    ② 登录弹窗放错过位置：放在 layout.html 的 </body> 前是【无效】的 ——
+       本文件整页【从不被渲染】，页面只会 replace 它声明的 fragment，
+       所以弹窗必须放在 nav fragment【里面】；
+    ③ 8KB 响应缓冲的 session 坑：见 GlobalModelAdvice 里 request.getSession(true) 那段注释。
+       这次重写**逐字保留**了那段逻辑，别删。
+
+  【T-043 改了什么】
+    · 深青渐变导航 → 浅色导航（白底 + 发丝线 + 药丸导航项）
+    · 所有颜色/圆角/阴影 → 取 static/css/fh.css 里的 --fh-* token
+    · 后台子导航高亮由绿改【品牌蓝】
+    · 新增页脚；容器 1040 → 1200px（在 fh.css 里）
+    ⚠️ 导航结构基本没动（顺序、管理位置、游客弹登录框）—— docs/08 §10 约束 3。
+       🔄 唯一的例外：2026-10-04 按项目负责人要求**删掉了「学习」入口**（其他社团不需要学习模块）。
+  ============================================================================
+-->
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:fragment="head(pageTitle)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle} + ' · ' + ${systemName}">FountainHub</title>
+
+    <!-- ⚠️ Bootstrap 5 只用来两件事：① 栅格 row/col-md-*  ② 登录弹窗 modal
+         页面【所有看得见的东西】都在 fh.css 里自己实现 ——
+         万一 CDN 加载不到（沙箱没外网 / 校园网拦截），页面依然完整可用。 -->
+    <link rel="stylesheet"
+          href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.3/css/bootstrap.min.css">
+
+    <!-- 全站样式（T-043：唯一一份 CSS，token 都在里面） -->
+    <link rel="stylesheet" th:href="@{/css/fh.css}">
+
+    <!--
+        ⚠️【T-041 修复】CSRF meta 必须在这里（公共 head fragment 里）。
+        原来它写在 news-form.html 自己的 <head> 里，但那个 <head> 被
+        th:replace 整个替换掉了 → meta 根本没渲染 → 上传时 JS 取不到 token
+        → 后端返回 403 的 HTML → 前端 .catch() 只显示「上传失败，请刷新重试」，
+        用户完全不知道为什么。放进公共 head 后，全站任何页面做 fetch 都能用。
+    -->
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}">
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : ''}">
+</head>
+<body>
+
+<!-- ==========================================================================
+     顶部导航栏
+     ⚠️ 只放【已经存在】的页面 —— 放不存在的就是死链
+     ⚠️ 退出登录必须是 POST 表单：Spring Security 默认只接受 POST
+     ========================================================================== -->
+<nav th:fragment="nav" class="fh-nav">
+    <div class="fh-nav-inner">
+
+        <!-- 品牌区：圆形社徽占位块 + 系统名 + 社团名
+             ⚠️ 社徽 4 版备选尚未定稿（docs/08 §1.2）→ 这里用中性圆形占位块 + 四角星线稿 -->
+        <a class="fh-brand" th:href="@{/}">
+            <span class="fh-logo"><svg th:replace="~{fragments/icons :: ic-star}"></svg></span>
+            <span class="fh-brand-text">
+                <span class="fh-brand-name" th:text="${systemName}">FountainHub</span>
+                <span class="fh-brand-club" th:text="'· ' + ${clubName}">· 【请填写社团名称】</span>
+            </span>
+        </a>
+
+        <div class="fh-links">
+            <a class="fh-navitem" th:href="@{/}" th:classappend="${currentPath == '/'} ? 'fh-navon'">首页</a>
+            <!-- 【2026-10-05】需求方指定的导航顺序：首页 → 社团介绍 → 新闻 → 学习 → 管理 → 我的 -->
+            <a class="fh-navitem" th:href="@{/about}" th:classappend="${currentPath == '/about'} ? 'fh-navon'">社团介绍</a>
+            <a class="fh-navitem" th:href="@{/news}" th:classappend="${#strings.startsWith(currentPath, '/news')} ? 'fh-navon'">新闻</a>
+
+            <!--
+                🔄 2026-10-04：【「学习」入口已删除】（项目负责人决定）。
+                原来这里有「学习」（游客点弹登录框 / 登录用户进 /me/study 占位页）。
+                理由：这个项目要开源成"通用社团管理系统"，**其他社团不需要学习模块** ——
+                题库与教学视频本来就是二期功能、一期只有个占位页。
+                同时 `MyHomeController` 里的 `/study` 路由与 `me/study.html` 模板也一并撤掉了。
+                ⚠️ 导航因此由【四段式】变回：首页 → 社团介绍 → 新闻 → 管理 → 我的。
+            -->
+
+            <!--
+                管理：普通链接（不是下拉）。⭐ 位置按项目负责人要求：在「学习」和「我的」中间。
+                点进去后在下面出现一条【子导航】，列出各个后台页面。
+            -->
+            <a class="fh-navitem" sec:authorize="hasAnyRole('TEACHER','PRESIDENT','VICE_PRESIDENT')"
+               th:href="@{/admin}" th:classappend="${currentPath != null and #strings.startsWith(currentPath, '/admin')} ? 'fh-navon'">管理</a>
+
+            <!-- 我的：游客点了弹登录框；登录用户进个人页 -->
+            <a class="fh-navitem" sec:authorize="isAnonymous()" href="#"
+               data-bs-toggle="modal" data-bs-target="#loginModal">我的</a>
+            <a class="fh-navitem" sec:authorize="!isAnonymous()" th:href="@{/me}"
+               th:classappend="${currentPath == '/me'} ? 'fh-navon'">我的</a>
+
+            <!-- ===== 右侧 ===== -->
+            <!-- ⚠️ 用 !isAnonymous()，不能用 isAuthenticated()（后者对游客也返回 true） -->
+            <span sec:authorize="!isAnonymous()" class="fh-user">
+                <span class="fh-hello">你好，<b th:text="${navUserName}">用户</b></span>
+                <form class="fh-logout" th:action="@{/logout}" method="post">
+                    <button type="submit">退出登录</button>
+                </form>
+            </span>
+            <span sec:authorize="isAnonymous()" class="fh-user">
+                <a class="fh-btn fh-btn-main fh-btn-sm" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">登录</a>
+            </span>
+        </div>
+    </div>
+
+    <!--
+        ==================== 子导航 ====================
+        只在【后台页面】（/admin 开头）出现，一条浅色横条列出各个后台页面。
+        ⭐ 放在 nav fragment 里面，所以后台页面【一行都不用改】就自动带上。
+        当前页高亮（品牌蓝下划线）。T-043 由绿改蓝，并改用 token。
+    -->
+    <div class="fh-subnav"
+         sec:authorize="hasAnyRole('TEACHER','PRESIDENT','VICE_PRESIDENT')"
+         th:if="${currentPath != null and #strings.startsWith(currentPath, '/admin')}">
+        <div class="fh-subnav-inner">
+            <a th:href="@{/admin}" th:classappend="${currentPath == '/admin'} ? 'fh-subon'">总览</a>
+            <a th:href="@{/admin/students}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/students')} ? 'fh-subon'">学员列表</a>
+            <a th:href="@{/admin/groups}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/groups')} ? 'fh-subon'">分组管理</a>
+            <a th:href="@{/admin/attendance}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/attendance')} ? 'fh-subon'">考勤管理</a>
+            <a th:href="@{/admin/news}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/news')} ? 'fh-subon'">新闻管理</a>
+            <!-- T-032（2026-10-04 项目负责人批准）：后台子导航 6 项 → 7 项，加「获奖管理」 -->
+            <a th:href="@{/admin/awards}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/awards')} ? 'fh-subon'">获奖管理</a>
+            <a th:href="@{/admin/settings}"
+               th:classappend="${#strings.startsWith(currentPath, '/admin/settings')} ? 'fh-subon'">站点设置</a>
+        </div>
+    </div>
+
+
+    <!-- Bootstrap 的 JS 只为了登录弹窗。和 CSS 一样用国内 CDN，全站只在这一处引 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+</nav>
+
+<!-- ==========================================================================
+     页脚（T-043 新增）：一句社团口号 + 系统名
+     ⚠️ 页脚只放【公开信息】—— 绝不放任何学员联系方式（docs/spec.md §3.3）
+     ========================================================================== -->
+<footer th:fragment="footer" class="fh-footer">
+    <div class="fh-footer-inner">
+        <span><b th:text="${systemName}">FountainHub</b> · <span th:text="${clubName}">【请填写社团名称】</span> 社团管理系统</span>
+        <!-- 🔄 开源脱敏（2026-10-04）：页脚口号改为读全站常量 ${clubSlogan}（默认空串）。
+             使用者只需改 GlobalModelAdvice 里的 CLUB_SLOGAN 一处，页脚与首页同时生效。
+             ⚠️ 标签体故意留空 —— 原口号是社团独有文化，不能写在这里当"静态占位"。 -->
+        <span class="fh-footer-slogan" th:text="${clubSlogan}"></span>
+    </div>
+
+    <!-- ==================== 登录弹窗 ==================== -->
+    <!--
+        游客点「学习」「我的」「登录」时弹出来。
+        ⚠️ 接口【一个都没改】：登录表单还是 POST 到现有的 /login，
+           「去注册」还是跳到现有的 /register 页面。只是把「跳转」换成了「弹窗」。
+        ============================================================
+        [2026-10-07 修] 这里踩过一个很隐蔽的坑，别把它搬回 nav：
+           原来这段弹窗写在 nav fragment 里。而 .fh-nav 是
+               position: sticky; z-index: 1030;
+           sticky + z-index 会让 nav 自己形成一个【层叠上下文】，
+           于是弹窗（Bootstrap 的 .modal 是 1055）只能在 nav 内部比大小，
+           相对整个页面它只有 1030 → 被 1050 的黑色遮罩盖住 →
+           现象：「点了登录，页面整体变黑，弹窗看得见但点不动、打不了字」。
+           [OK] 放到 footer fragment 里就对了：footer 没有 position / z-index，
+                不会形成层叠上下文，弹窗的 1055 才能正常压住 1050 的遮罩。
+           （仍满足「必须放在某个 fragment 里」—— layout.html 整页从不被渲染。）
+        ============================================================
+           因为 layout.html 整页【从不被渲染】，页面只会 replace 它声明的 fragment。
+    -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content fh-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">登录 <span th:text="${clubName}">【请填写社团名称】</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <form th:action="@{/login}" method="post">
+                        <p class="fh-mlabel">账号（用户名 / 学号 / 手机号，三种任选其一）</p>
+                        <input class="fh-minput" type="text" name="username" required>
+                        <p class="fh-mlabel">密码</p>
+                        <input class="fh-minput" type="password" name="password" required>
+                        <button class="fh-mbtn" type="submit">登 录</button>
+                    </form>
+                    <p class="fh-mfoot">
+                        还没有账号？<a th:href="@{/register}">去注册</a>
+                        <span class="fh-msep">·</span>
+                        <a th:href="@{/login}">打开完整登录页</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

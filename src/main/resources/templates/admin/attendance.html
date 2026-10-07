@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!-- 后台考勤管理（T-020 / T-022；T-043 视觉落地）：创建活动 + 两个导出 + 活动列表 + 出勤率
+     🔒 本页归社长层（指导老师 / 正社长 / 副社长），**组长一律 403**（代打卡 = 能写别人的数据）。 -->
+<head th:replace="~{fragments/layout :: head('考勤管理')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">考勤管理</h1>
+
+    <!-- 提示：A 成功 / B 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <!-- ==================== 创建活动 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">创建考勤活动</p>
+        <form th:action="@{/admin/attendance/events}" method="post" class="fh-formrow">
+            <input type="date" name="eventDate" required>
+            <select name="type">
+                <option value="WEEKLY_MEETING">例行活动（必到）</option>
+                <option value="DAILY_OPEN">日常开放（自愿）</option>
+            </select>
+            <input type="text" name="title" placeholder="标题（留空则用类型名）" maxlength="100">
+            <input type="text" name="description" placeholder="说明（可空）" maxlength="500">
+            <button type="submit" class="fh-btn fh-btn-main">创建</button>
+        </form>
+        <p class="fh-hint" style="margin:8px 0 0">同一天、同一种类型只能有一场（重复创建会给出友好提示，不是 500）。</p>
+    </div>
+
+    <!-- ==================== ⭐ 两个导出按钮：点哪个导哪个（T-022） ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">导出考勤表</p>
+        <div class="fh-flex">
+            <a class="fh-btn fh-btn-main" th:href="@{/admin/attendance/export/weekly}">导出 · 仅例行活动</a>
+            <a class="fh-btn fh-btn-outline" th:href="@{/admin/attendance/export/all}">导出 · 全部日期</a>
+        </div>
+        <p class="fh-sub" style="margin:14px 0 0">
+            格式：<b>行 = 学生，第一列 = 姓名，后面 = 日期（几月几日），到了打 ✓、没到空着</b>。
+            <span class="fh-flex" style="display:inline-flex">
+                <svg style="width:14px;height:14px" th:replace="~{fragments/icons :: ic-lock}"></svg>不含手机号。
+            </span>
+        </p>
+        <p class="fh-sub" style="margin:6px 0 0;color:var(--fh-warn-fg)">
+            当前导出的是 <b>.csv</b>（Excel / WPS 可直接打开）。
+            等本地 Maven 仓库有了 Apache POI，再换成真正的 .xlsx —— 见 AttendanceExportController 顶部说明。
+        </p>
+    </div>
+
+    <!-- ==================== 活动列表 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">活动列表（共 <b th:text="${totalEvents}">0</b> 场，应到 <b th:text="${studentCount}">0</b> 人）</p>
+
+        <!-- 空状态（D 类 · 无数据） -->
+        <div class="fh-empty" th:if="${#lists.isEmpty(events)}">
+            <svg th:replace="~{fragments/icons :: ic-calendar}"></svg>
+            <div class="fh-empty-title">还没有考勤活动</div>
+            <div>先在上面创建一场。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${#lists.isEmpty(events)}">
+            <thead><tr><th>日期</th><th>活动</th><th>类型</th><th>实到</th><th>操作</th></tr></thead>
+            <tbody>
+            <tr th:each="e : ${events}">
+                <td class="mono" th:text="${e.eventDate}">2026-10-07</td>
+                <td th:text="${e.title}">例行活动</td>
+                <td th:text="${e.type.label}">例行活动（必到）</td>
+                <td><b th:text="${presentByEvent[e.id] != null ? presentByEvent[e.id] : 0}">0</b> / <span th:text="${studentCount}">0</span></td>
+                <td><a th:href="@{/admin/attendance/{id}(id=${e.id})}">查看 / 代打卡</a></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ==================== 出勤率 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">出勤率（到场场次 ÷ 应到场次）</p>
+
+        <div class="fh-empty" th:if="${#lists.isEmpty(rates)}">
+            <svg th:replace="~{fragments/icons :: ic-chart}"></svg>
+            <div class="fh-empty-title">还没有可统计的数据</div>
+            <div>创建活动并有人签到后，这里会算出出勤率。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${#lists.isEmpty(rates)}">
+            <thead><tr><th>姓名</th><th>学号</th><th>到场</th><th>应到</th><th>出勤率</th></tr></thead>
+            <tbody>
+            <tr th:each="row : ${rates}">
+                <td th:text="${row.name}">张三</td>
+                <td class="mono" th:text="${row.studentNo}">2025001</td>
+                <td class="mono" th:text="${row.present}">0</td>
+                <td class="mono" th:text="${row.should}">0</td>
+                <td><b th:text="${row.percent}">0</b>%</td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="fh-hint" style="margin:10px 0 0">
+            「没去就空着」—— 没来的人数据库里没有记录，只是这里少算一次。
+        </p>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

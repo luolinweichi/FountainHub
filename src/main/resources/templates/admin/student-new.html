@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  手工补录学员（T-045 / M2）—— 管理员一次完成「建账号 + 建学员档案」。
+
+  【和 /register（自助注册）的三点区别】
+    ① 状态：这里建的账号**直接是「在读」（ACTIVE）**，不走"待审核"—— 因为是管理员主动建的；
+    ② 初始密码：由**管理员填**，建完要把「账号 + 初始密码」告诉本人（页面会提醒）；
+    ③ 入口：这个是**后台页**，游客看不到（/admin/** 限定老师 / 正社长 / 副社长）。
+
+  【和自助注册【相同】的两条红线】
+    · 角色一律 `STUDENT` —— 绝不允许在这里建老师/社长账号（那要走别的流程）；
+    · 密码**存 BCrypt 哈希**，绝不存明文。
+
+  ⚠️ 字段口径与「学员详情编辑页」保持一致，避免两处表单长得不一样。
+-->
+<head th:replace="~{fragments/layout :: head('手工补录学员')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">手工补录学员</h1>
+    <p class="fh-sub">
+        一次完成「建账号 + 建档案」。建好后请把 <b>账号 + 初始密码</b> 告诉本人，
+        让他自己到「我的 → 修改密码」改成自己的密码。
+    </p>
+
+    <!-- 出错提示（校验失败时把填过的内容原样带回，不让人重打一遍） -->
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <span>❌</span><span th:text="${error}">出错了</span>
+    </div>
+
+    <div class="fh-card">
+        <form th:action="@{/admin/students}" method="post">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="realName">真实姓名</label>
+                    <input type="text" id="realName" name="realName" class="form-control"
+                           th:value="${realName}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="studentNo">学号</label>
+                    <input type="text" id="studentNo" name="studentNo" class="form-control"
+                           th:value="${studentNo}" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" class="form-control"
+                           th:value="${username}" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="phone">手机号</label>
+                    <input type="text" id="phone" name="phone" class="form-control"
+                           th:value="${phone}" placeholder="11 位" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="password">初始密码</label>
+                    <input type="password" id="password" name="password" class="form-control"
+                           placeholder="至少 8 位" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="confirmPassword">确认密码</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" class="form-control"
+                           placeholder="再输一遍" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="groupId">所属组</label>
+                    <select id="groupId" name="groupId" class="form-select">
+                        <option value="">（未分组）</option>
+                        <option th:each="g : ${allGroups}"
+                                th:value="${g.id}"
+                                th:text="${g.name}"
+                                th:selected="${groupId != null and groupId == g.id}">示例组</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="grade">年级</label>
+                    <input type="text" id="grade" name="grade" class="form-control"
+                           th:value="${grade}" placeholder="如 2025级">
+                </div>
+                <div class="col-md-4">
+                    <label for="majorClass">专业 / 班级</label>
+                    <input type="text" id="majorClass" name="majorClass" class="form-control"
+                           th:value="${majorClass}" placeholder="如 计算机 1 班">
+                </div>
+
+                <div class="col-md-6">
+                    <label for="languages">擅长的语言</label>
+                    <input type="text" id="languages" name="languages" class="form-control"
+                           th:value="${languages}" placeholder="示例：Python,C++">
+                </div>
+                <div class="col-md-3">
+                    <label for="level">阶段</label>
+                    <select id="level" name="level" class="form-select">
+                        <option value="">（未设置）</option>
+                        <option th:each="lv : ${allLevels}"
+                                th:value="${lv.name()}"
+                                th:text="${lv.label}"
+                                th:selected="${level != null and level == lv.name()}">入门</option>
+                    </select>
+                </div>
+                <div class="col-md-3" style="display:flex;align-items:flex-end">
+                    <!-- 入社日期由服务端记成"今天"（与自助注册一致），表单里不填 -->
+                    <span class="fh-hint">入社日期自动记为今天</span>
+                </div>
+            </div>
+
+            <div class="fh-flex" style="margin-top:18px;gap:10px">
+                <button type="submit" class="fh-btn fh-btn-main">创建账号</button>
+                <a th:href="@{/admin/students}" class="fh-btn fh-btn-ghost">取消</a>
+            </div>
+        </form>
+    </div>
+
+    <p class="fh-hint">
+        ⚠️ 补录的账号**默认「在读」**（不走待审核，建完就能登录）；
+        角色固定为「学员」。<b>批量导入</b>（Excel / CSV）属二期，本次不做。
+        用户名 / 学号 / 手机号都是唯一值，重复会给出提示。
+    </p>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

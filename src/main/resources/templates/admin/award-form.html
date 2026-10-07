@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  录入 / 编辑获奖（T-032 / M8）。
+  ⚠️ 关于"公开意愿"，本页【故意没有勾选框】：
+     红线要求"获奖对外展示必须经学员本人同意"，管理员不能替他表态。
+     这里只在已选的学员旁边【显示】他当前的状态（已同意 / 未同意），开关在 /me/awards。
+  ⚠️ 成员列表显示姓名 + 角色，【不显示手机号】（全站红线）。
+-->
+<head th:replace="~{fragments/layout :: head('录入获奖')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <p class="fh-sub"><a th:href="@{/admin/awards}">← 返回获奖管理</a></p>
+    <h1 class="fh-title" th:text="${isNew} ? '录入获奖' : '编辑获奖'">录入获奖</h1>
+
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <form class="fh-card"
+          th:action="${isNew} ? @{/admin/awards/new} : @{/admin/awards/{id}/edit(id=${award.id})}"
+          method="post">
+
+        <p class="fh-field">
+            <label>比赛名称 *</label>
+            <input type="text" name="competitionName" th:value="${award.competitionName}"
+                   maxlength="200" required style="width:100%" placeholder="例如：2026 年 CSP-S 第二轮">
+        </p>
+
+        <p class="fh-field">
+            <label>举办方</label>
+            <input type="text" name="organizer" th:value="${award.organizer}"
+                   maxlength="200" style="width:52%" placeholder="例如：中国计算机学会">
+        </p>
+
+        <p class="fh-field">
+            <label>获奖日期</label>
+            <input type="date" name="awardDate" th:value="${award.awardDate}" style="width:auto">
+
+            <label style="margin-left:18px">级别 *</label>
+            <select name="awardLevel" required style="width:auto">
+                <option value="">请选择</option>
+                <option th:each="l : ${levels}" th:value="${l.name()}" th:text="${l.label}"
+                        th:selected="${award.awardLevel != null and award.awardLevel.name() == l.name()}">省级</option>
+            </select>
+
+            <label style="margin-left:18px">奖项 *</label>
+            <select name="prize" required style="width:auto">
+                <option value="">请选择</option>
+                <option th:each="p : ${prizes}" th:value="${p.name()}" th:text="${p.label}"
+                        th:selected="${award.prize != null and award.prize.name() == p.name()}">一等奖</option>
+            </select>
+        </p>
+
+        <p class="fh-field">
+            <label>指导老师</label>
+            <input type="text" name="advisorName" th:value="${award.advisorName}"
+                   maxlength="100" style="width:36%">
+            <span class="fh-hint">（表里存的是姓名文本，不是账号）</span>
+        </p>
+
+        <!-- ==================== 参与学员 ==================== -->
+        <p class="fh-field" style="margin-top:18px">
+            <label>参与学员（团队奖可多选）</label>
+            <span class="fh-hint">勾几个人就是几个人获奖；取消勾选 = 把这个人从名单里移除</span>
+        </p>
+        <div class="fh-card" style="background:var(--fh-sunken);max-height:260px;overflow:auto;padding:14px 18px">
+            <label th:each="u : ${candidates}"
+                   style="display:block;margin:0 0 6px">
+                <input type="checkbox" name="userIds" th:value="${u.id}"
+                       th:checked="${selectedIds.contains(u.id)}" style="width:auto">
+                <span th:text="${u.realName} ?: ${u.username}">姓名</span>
+                <span class="fh-hint" th:text="|（${u.role.label}）|">（学员）</span>
+                <span th:if="${consentByUser.containsKey(u.id)}"
+                      class="fh-badge" style="margin-left:6px"
+                      th:classappend="${consentByUser.get(u.id)} ? ' fh-pub' : ''"
+                      th:text="${consentByUser.get(u.id)} ? '已同意公开' : '未同意公开'">未同意公开</span>
+            </label>
+        </div>
+
+        <div class="fh-alert fh-alert-info" style="margin-top:12px">
+            <svg th:replace="~{fragments/icons :: ic-info}"></svg>
+            <span>
+                🔒 公开意愿只有学员<b>本人</b>能在「我的获奖」里打开，这里不能替他勾选。
+                ⚠️ 取消勾选会把这个人从名单里移除，<b>他之前打开的公开意愿也会一起清掉</b>。
+            </span>
+        </div>
+
+        <!-- ==================== 证书照片（可多张） ==================== -->
+        <p class="fh-field" style="margin-top:18px">
+            <label>证书照片</label>
+            <span class="fh-hint">（可多张，单张 ≤ 5MB，只允许图片；点 × 移除，<b>保存后生效</b>）</span>
+        </p>
+        <div id="awardImgs" class="fh-flex" style="gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
+        <input type="file" id="awardImgFile" accept="image/*" multiple style="width:auto">
+        <!-- 提交给后端的图片路径（逗号分隔）；🔒 后端只接受 /uploads/ 开头的 -->
+        <input type="hidden" id="imagePaths" name="imagePaths" th:value="${imagePathsCsv}">
+
+        <p style="margin-top:20px">
+            <button type="submit" class="fh-btn fh-btn-main">保存</button>
+            <span class="fh-hint" style="margin-left:10px">团队奖一条记录就够了，不要一个人录一条</span>
+        </p>
+    </form>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/upload.js}"></script>
+<script th:inline="javascript">
+    /* ========================================================================
+       证书多图：本地维护一个 paths 数组，每次变化就写回隐藏字段。
+       ⚠️ 上传用的是公共函数 fhUpload（static/js/upload.js）——
+          它必须在【公共文件】里，写在某个页面里别的页面就调不到（T-042 踩过这个坑）。
+       ⚠️ 用 Promise 串起来逐个上传：并发上传多张会互相抢，且失败时不好定位。
+       ======================================================================== */
+    var imgPaths = /*[[${paths}]]*/ [];
+    var imgBox = document.getElementById("awardImgs");
+    var imgHidden = document.getElementById("imagePaths");
+
+    function renderImgs() {
+        imgBox.innerHTML = "";
+        imgPaths.forEach(function (p, i) {
+            var wrap = document.createElement("span");
+            wrap.style.position = "relative";
+            wrap.style.display = "inline-block";
+
+            var img = document.createElement("img");
+            img.className = "fh-coverimg";
+            img.src = p;
+            img.alt = "证书";
+
+            var del = document.createElement("button");
+            del.type = "button";
+            del.textContent = "×";
+            del.title = "移除这张（保存后生效）";
+            del.style.cssText = "position:absolute;top:-8px;right:-8px;width:22px;height:22px;border:0;"
+                + "border-radius:50%;background:var(--fh-err-fg);color:#fff;cursor:pointer;line-height:1";
+            del.addEventListener("click", function () {
+                imgPaths.splice(i, 1);
+                renderImgs();
+            });
+
+            wrap.appendChild(img);
+            wrap.appendChild(del);
+            imgBox.appendChild(wrap);
+        });
+        // 写回隐藏字段：逗号分隔（后端会按 , ; 空白 拆开并逐个校验）
+        imgHidden.value = imgPaths.join(",");
+    }
+
+    document.getElementById("awardImgFile").addEventListener("change", function () {
+        var files = Array.prototype.slice.call(this.files);
+        this.value = "";   // 清空，方便同一张图重选
+        var chain = Promise.resolve();
+        files.forEach(function (f) {
+            chain = chain.then(function () {
+                return new Promise(function (resolve) {
+                    fhUpload(f, function (url) {
+                        imgPaths.push(url);
+                        renderImgs();
+                        resolve();
+                    }, function (msg) {
+                        alert(msg);   // 失败必须说出来，不能默默没反应
+                        resolve();
+                    });
+                });
+            });
+        });
+    });
+
+    renderImgs();
+</script>
+
+</body>
+</html>

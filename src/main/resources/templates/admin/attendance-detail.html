@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!-- 单场考勤明细 + 代打卡（T-020；T-043 视觉落地）
+     ⭐ 代打卡必须【记录是谁代打的】—— 这是权限最重的一类操作，所以归社长层。 -->
+<head th:replace="~{fragments/layout :: head('考勤明细')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <p class="fh-sub"><a th:href="@{/admin/attendance}">← 返回考勤管理</a></p>
+
+    <h1 class="fh-title fh-flex">
+        <span th:text="${event.title}">例行活动</span>
+        <span class="fh-tag" th:text="${event.type.label}">例行活动（必到）</span>
+        <span class="fh-hint mono" th:text="${event.eventDate}">2026-10-07</span>
+    </h1>
+
+    <!-- 提示：A 成功 / B 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <div class="fh-card">
+        <p class="fh-sec-title">到场明细</p>
+
+        <!-- 空状态（D 类 · 无数据） -->
+        <div class="fh-empty" th:if="${#lists.isEmpty(students)}">
+            <svg th:replace="~{fragments/icons :: ic-users}"></svg>
+            <div class="fh-empty-title">还没有可打卡的学员</div>
+            <div>学员注册并通过审核后，这里会列出名单。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${#lists.isEmpty(students)}">
+            <thead><tr><th>姓名</th><th>学号</th><th>状态</th><th>记录方式</th><th>操作</th></tr></thead>
+            <tbody>
+            <tr th:each="s : ${students}">
+                <td th:text="${s.realName}">普通社员</td>
+                <td class="mono" th:text="${s.studentNo}">2025001</td>
+                <td>
+                    <!-- 状态用"浅底 + 深字 + 小圆点"的标签，不用整行填色 -->
+                    <span class="tag" th:if="${byUser[s.id] == null}">没来（无记录）</span>
+                    <span class="tag"
+                          th:classappend="${byUser[s.id] != null and byUser[s.id].status.name() == 'PRESENT'} ? 'active' : 'pending'"
+                          th:if="${byUser[s.id] != null}" th:text="${byUser[s.id].status.label}">到场</span>
+                </td>
+                <td>
+                    <span class="fh-hint" th:if="${byUser[s.id] != null and byUser[s.id].checkinType.name() == 'SELF'}">本人自助</span>
+                    <!-- ⭐ 代打卡留痕：记录 + 显示"由 XX 代打" -->
+                    <span th:if="${byUser[s.id] != null and byUser[s.id].checkinType.name() == 'ADMIN'}">
+                        <span class="fh-tag fh-tag-gold">由 <span th:text="${operatorNames[byUser[s.id].operatorId] != null ? operatorNames[byUser[s.id].operatorId] : '管理员'}">XX</span> 代打</span>
+                    </span>
+                    <span class="fh-hint" th:if="${byUser[s.id] == null}">—</span>
+                </td>
+                <td>
+                    <form th:action="@{/admin/attendance/{id}/mark(id=${event.id})}" method="post" style="display:inline">
+                        <input type="hidden" name="userId" th:value="${s.id}">
+                        <input type="hidden" name="status" value="PRESENT">
+                        <button type="submit" class="fh-btn fh-btn-main fh-btn-sm">代打卡（到场）</button>
+                    </form>
+                    <form th:action="@{/admin/attendance/{id}/mark(id=${event.id})}" method="post" style="display:inline">
+                        <input type="hidden" name="userId" th:value="${s.id}">
+                        <input type="hidden" name="status" value="LEAVE">
+                        <button type="submit" class="fh-btn fh-btn-ghost fh-btn-sm">标请假</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="fh-hint" style="margin:10px 0 0">
+            代打卡会记录<b>是谁代打的</b>；不会批量生成「缺席」记录 —— 没来就是没记录。
+        </p>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

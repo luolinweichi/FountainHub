@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  「我的小组」（T-017；T-043 视觉落地）—— 组长专用页面。
+
+  🔒 这一页【故意】只显示三样东西：组名、组员人数、组员姓名。
+     没有学号、没有角色、没有状态、**没有手机号**。
+     要加内容之前先想清楚：组长带的是同学，不是下属。
+-->
+<head th:replace="~{fragments/layout :: head('我的小组')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page">
+
+    <!-- 空状态（D 类 · 无数据）：没带任何组 -->
+    <div class="fh-card" th:if="${#lists.isEmpty(myGroups)}">
+        <div class="fh-empty">
+            <svg th:replace="~{fragments/icons :: ic-users}"></svg>
+            <div class="fh-empty-title">你目前没有带任何小组</div>
+            <div>需要设置组长时，请找社长或指导老师。</div>
+        </div>
+    </div>
+
+    <!-- 一个人可能带多个组，所以用 th:each -->
+    <div th:each="g : ${myGroups}" class="fh-card">
+        <h2 th:text="${g.name}">示例组</h2>
+        <p class="fh-sub">
+            组员 <b th:text="${#lists.size(members[g.id])}">0</b> 人
+        </p>
+
+        <!--
+            🔒 只渲染 realName（姓名）。
+            这里【绝不能】加 phone / studentNo / role / status —— 见 docs/spec.md 第 3.3 节。
+        -->
+        <ul class="fh-members">
+            <li th:each="u : ${members[g.id]}" th:text="${u.realName}">张三</li>
+        </ul>
+
+        <p class="fh-hint" th:if="${#lists.isEmpty(members[g.id])}" style="margin-top:12px">
+            这个组还没有组员。
+        </p>
+    </div>
+
+    <!-- 说明这个页面能做什么、不能做什么（对组长是个交代） -->
+    <div class="fh-card">
+        <p class="fh-sec-title">关于这个页面</p>
+        <p class="fh-flex" style="margin-bottom:10px">
+            <svg style="width:16px;height:16px;color:var(--fh-brand)"
+                 th:replace="~{fragments/icons :: ic-eye}"></svg>
+            <span>你可以看到：<b>本组的组名、组员人数、组员姓名</b>。</span>
+        </p>
+        <p class="fh-flex" style="margin-bottom:0">
+            <svg style="width:16px;height:16px;color:var(--fh-ink-3)"
+                 th:replace="~{fragments/icons :: ic-lock}"></svg>
+            <span>你看不到：学号、角色、在社状态、以及任何人的<b>手机号</b>；
+                  也不能修改任何数据 —— 需要改动请找社长或指导老师。</span>
+        </p>
+    </div>
+
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

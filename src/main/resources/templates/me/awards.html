@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  学员端「我的获奖」（T-032 / M8）。
+  🔒 这是全站唯一能打开「同意公开」的地方 ——
+     红线：获奖对外展示必须经【本人】同意。管理员在后台【不能】替你勾。
+  ⚠️ 同一条团队奖里，每个人各自决定；别人的状态这里只显示"公开/未公开"，
+     但**点不了**（按钮只对自己的那一行渲染，后端还会再校验一次归属）。
+-->
+<head th:replace="~{fragments/layout :: head('我的获奖')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">我的获奖</h1>
+    <p class="fh-sub">
+        共 <b th:text="${totalCount}">0</b> 条，其中 <b th:text="${publicCount}">0</b> 条已同意公开。
+        🔒 <b>公开与否由你自己决定</b>：同意之后才会出现在对外展示墙，随时可以撤回。
+    </p>
+
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <!-- 空状态（D 类 · 无数据） -->
+    <div class="fh-empty" th:if="${#lists.isEmpty(rows)}">
+        <svg th:replace="~{fragments/icons :: ic-star}"></svg>
+        <div class="fh-empty-title">还没有你的获奖记录</div>
+        <div>社长在后台录入之后，这里就会显示出来。</div>
+    </div>
+
+    <div class="fh-card" th:each="r : ${rows}">
+        <p class="fh-sec-title">
+            <span th:text="${r.award.competitionName}">比赛名称</span>
+            <span class="fh-badge fh-cat" th:text="${r.award.awardLevel.label}">省级</span>
+            <span class="fh-badge fh-tag-gold" th:text="${r.award.prize.label}">一等奖</span>
+            <span class="fh-badge" style="margin-left:auto"
+                  th:classappend="${r.isPublic} ? ' fh-pub' : ''"
+                  th:text="${r.isPublic} ? '已同意公开' : '未同意公开'">未同意公开</span>
+        </p>
+
+        <p class="fh-sub">
+            <span th:text="${r.award.organizer} ?: '举办方未填'">举办方</span>
+            <span th:if="${r.award.awardDate != null}" th:text="| · ${r.award.awardDate}|"></span>
+            <span th:if="${r.award.advisorName != null}" th:text="| · 指导老师：${r.award.advisorName}|"></span>
+        </p>
+
+        <!-- 队友（团队奖）：显示都有谁，以及他们各自是否同意公开 -->
+        <p class="fh-field">
+            <label>获奖成员</label>
+            <span th:each="t : ${r.teammates}" class="fh-badge"
+                  th:classappend="${t.isPublic} ? ' fh-pub' : ''"
+                  style="margin:2px 4px 2px 0"
+                  th:text="|${t.name}${t.me ? '（我）' : ''} · ${t.isPublic ? '已公开' : '未公开'}|">姓名</span>
+        </p>
+
+        <!-- 证书照片 -->
+        <div class="fh-flex" style="gap:10px;flex-wrap:wrap" th:if="${!#lists.isEmpty(r.images)}">
+            <!-- ⚠️ 图片路径是数据库里存的站内相对路径，所以直接 ${...} 取值
+                 （和新闻封面/证书缩略图同一个写法：见 news/detail.html、admin/news.html） -->
+            <a th:each="img : ${r.images}" th:href="${img.imagePath}" target="_blank" rel="noopener">
+                <img class="fh-coverimg" th:src="${img.imagePath}" alt="证书">
+            </a>
+        </div>
+        <p class="fh-hint" th:if="${#lists.isEmpty(r.images)}">这条获奖还没有上传证书照片。</p>
+
+        <!-- 🔒 开关：只有自己的这一行才有按钮；用显式 value=true/false，避免"点一下取反"的不确定行为 -->
+        <p style="margin-top:14px">
+            <form th:if="${!r.isPublic}" th:action="@{/me/awards/{id}/public(id=${r.linkId})}" method="post"
+                  style="display:inline">
+                <input type="hidden" name="value" value="true">
+                <button type="submit" class="fh-btn fh-btn-main">同意公开这条获奖</button>
+            </form>
+            <form th:if="${r.isPublic}" th:action="@{/me/awards/{id}/public(id=${r.linkId})}" method="post"
+                  style="display:inline">
+                <input type="hidden" name="value" value="false">
+                <button type="submit" class="fh-btn">撤回公开</button>
+            </form>
+            <span class="fh-hint" style="margin-left:10px">
+                同意后：展示墙上会出现你的姓名与这条获奖（<b>不会显示任何联系方式</b>）
+            </span>
+        </p>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!-- 忘记密码 · 提交申请（T-012B）。⚠️ 全页不许出现「直接改密」二字；这是「申请 + 审核」。 -->
+<head th:replace="~{fragments/layout :: head('忘记密码')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-center">
+    <div class="fh-card">
+
+        <!-- ========== 状态 4：提交成功 ========== -->
+        <div th:if="${done}">
+            <h1>申请已提交</h1>
+            <p class="fh-sub">
+                <b th:text="${doneName}">同学</b>，你的申请已经提交给社长审核。
+            </p>
+            <div class="fh-alert fh-alert-info">
+                <span>⏳</span>
+                <span>在社长审核通过之前，<b>你原来的密码仍然可以正常登录</b>。审核通过后，新密码才会生效。</span>
+            </div>
+            <p style="margin-top:20px">
+                <a class="fh-btn" th:href="@{/login}">返回登录</a>
+            </p>
+        </div>
+
+        <!-- ========== 状态 1：空闲（第一次打开） ========== -->
+        <div th:unless="${done}">
+            <h1>忘记密码</h1>
+            <p class="fh-sub">填写你的账号和想设置的新密码，提交后由社长审核。</p>
+
+            <form method="post" th:action="@{/forgot}" id="forgotForm">
+
+                <p class="fh-field"><label>学号 / 用户名 / 手机号</label></p>
+                <input class="form-control" type="text" name="account" id="account"
+                       th:value="${account}" required autofocus>
+                <!-- 状态 2：字段级错误 -->
+                <p class="fh-errmsg" th:if="${accountError != null}" th:text="${accountError}">错误</p>
+
+                <p class="fh-field" style="margin-top:16px"><label>想设置的新密码</label>
+                    <span class="fh-hint">（至少 8 位）</span></p>
+                <input class="form-control" type="password" name="newPassword" id="newPassword" required>
+
+                <p class="fh-field" style="margin-top:16px"><label>再输一次新密码</label></p>
+                <input class="form-control" type="password" name="confirmPassword" id="confirmPassword" required>
+                <p class="fh-errmsg" th:if="${passwordError != null}" th:text="${passwordError}">错误</p>
+
+                <!-- 状态 3：提交中（JS 把按钮禁用并改文案） -->
+                <p style="margin-top:22px">
+                    <button type="submit" class="fh-btn fh-btn-main" id="submitBtn">提交申请</button>
+                    <a class="fh-btn" th:href="@{/login}" style="margin-left:8px">返回登录</a>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+  /* 状态 3「提交中」：点一次就把按钮禁用，防止连点提交两条申请 */
+  document.getElementById("forgotForm").addEventListener("submit", function () {
+      var b = document.getElementById("submitBtn");
+      b.disabled = true;
+      b.textContent = "提交中…";
+  });
+</script>
+
+<style>
+    .fh-errmsg { color: var(--fh-err-fg, #C0392B); font-size: 13px; margin: 6px 0 0; }
+    .fh-field { margin: 14px 0 6px; }
+    .fh-field label { font-size: 14px; color: var(--fh-ink-title, #1F2D3D); }
+</style>
+</body>
+</html>

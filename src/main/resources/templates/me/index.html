@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!--
+  「我的」= 我的主页 + ⭐ 签到日历（T-021；T-043 视觉落地；**2026-10-04 改版**）
+
+  🔄 【2026-10-04 改了什么】
+    原来这里是「**学习热力图**」（七级绿，数据来自 checkins / 内置题库）。
+    项目负责人决定撤掉它 —— 理由：**其他社团不需要这么多东西**
+    （题库是二期功能、一期没有数据，留着对外开源的通用系统只会让人困惑）。
+    空出来的主体位置改成「**签到日历**」（两色：已签到品牌蓝 / 未签到浅灰），
+    与 `/me/attendance` **是同一张图、同一份计算规则**
+    （都调 service/AttendanceCalendarService.fillCalendarCard）。
+
+  ⭐ 为什么不用 ECharts：见 me/attendance.html 顶部那段说明（一样的原因）。
+     现在不依赖 CDN、不依赖 JS，颜色由后端算 —— 永远不会白屏，颜色也保证看得见。
+
+  ⚠️ 日历那一段 HTML 与 me/attendance.html 里的**刻意保持重复**（唯一一处）——
+     因为两个页面的「年份左右箭头」链接地址不同（/me vs /me/attendance）。
+     改其中一处时，**另一处要一起改**。
+-->
+<head th:replace="~{fragments/layout :: head('我的主页')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+
+    <!-- ==================== 头像区（T-043：头像改文字头像，预留 P2 上传） ==================== -->
+    <div class="fh-card fh-mehead">
+        <!-- 默认姓名首字文字头像（docs/08 §8）；社徽/头像图片 P2 再上传 -->
+        <div class="fh-avatar" th:text="${#strings.substring(meName, 0, 1)}">社</div>
+        <div class="fh-meinfo">
+            <p class="fh-menname" th:text="${meName}">普通社员</p>
+            <p class="fh-memeta">
+                <span th:if="${meStudentNo != null}">学号 <span class="mono" th:text="${meStudentNo}">2025001</span></span>
+                <span th:if="${meGroupName != null}" class="fh-cat" th:text="${meGroupName}">示例组</span>
+                <span th:if="${meGroupName == null}" class="fh-sub" style="margin:0">未分组</span>
+            </p>
+        </div>
+        <a class="fh-mebtn" th:href="@{/me/profile}">
+            <svg th:replace="~{fragments/icons :: ic-edit}"></svg> 编辑资料
+        </a>
+    </div>
+
+    <!-- ==================== ⭐ 签到日历（两色：品牌蓝 / 浅灰） ====================
+         🔄 2026-10-04：这一块原来放的是「学习热力图」，现在放签到日历。
+         数据与画法与 /me/attendance 同源，见 AttendanceCalendarService。 -->
+    <div class="fh-card fh-cal-card">
+        <p class="fh-sec-title">
+            我的考勤
+            <a class="fh-more" th:href="@{/me/attendance}">签到明细 →</a>
+        </p>
+        <div class="fh-stats">
+            <div class="fh-stat"><div class="fh-stat-label">今日签到</div>
+                <div class="fh-stat-value">
+                    <span class="fh-ok" th:if="${todaySigned}">已签到</span>
+                    <span th:unless="${todaySigned}">--</span>
+                </div></div>
+            <div class="fh-stat"><div class="fh-stat-label">本周签到</div>
+                <div class="fh-stat-value"><b th:text="${weekDays}">0</b> 次</div></div>
+            <div class="fh-stat"><div class="fh-stat-label">累计签到</div>
+                <div class="fh-stat-value"><b th:text="${totalDays}">0</b> 天</div></div>
+            <div class="fh-stat-right">
+                <!-- ⚠️ 这里的链接指向 /me（本页）；/me/attendance 那处指向 /me/attendance —— 两处必须分别维护 -->
+                <a class="fh-year" th:href="@{/me(year=${prevYear})}">‹</a>
+                <span class="fh-yearlabel" th:text="${selectedYear} + '年'">2026年</span>
+                <a class="fh-year" th:href="@{/me(year=${nextYear})}">›</a>
+            </div>
+        </div>
+
+        <!-- 月份表头（每个月占几列，正好和下面的格子对齐） -->
+        <div class="fh-row fh-row-label">
+            <span class="fh-rowname"></span>
+            <span class="fh-months">
+                <span th:each="mo : ${monthSpans}" th:style="'flex:' + ${mo.span} + ' 0 0'" th:text="${mo.label}">1月</span>
+            </span>
+        </div>
+
+        <!-- 7 行格子：周一 ~ 周日 -->
+        <div class="fh-row" th:each="row, st : ${calendarRows}">
+            <span class="fh-rowname" th:text="${weekdayLabels[st.index]}">周一</span>
+            <span class="fh-cells">
+                <span class="fh-cell" th:each="c : ${row}"
+                      th:style="'background:' + ${c.color}"
+                      th:title="${c.tip}"></span>
+            </span>
+        </div>
+
+        <div class="fh-cal-foot">
+            <div>
+                <span>最长连续签到：<b th:text="${weekStreak}">0</b> 周<span class="fh-hint">（按例行活动算）</span></span>
+                <span class="fh-sep">|</span>
+                <span>最近一次签到：<b th:text="${lastCheckin}">--</b></span>
+            </div>
+            <!-- 图例：仅两色（未签到浅灰 / 已签到品牌蓝）—— 色值与格子同源 -->
+            <div class="fh-legend2">
+                <span><i class="fh-box" style="background:#DDE3E7"></i>未签到</span>
+                <span><i class="fh-box" style="background:#145AFF"></i>已签到</span>
+            </div>
+        </div>
+
+        <p class="fh-encourage" th:text="${encourage}">好的开始，继续保持</p>
+        <p class="fh-encourage fh-encourage-gold" th:if="${everyDayThisWeek}">这周有活动的日子你天天都来了，真拼！</p>
+        <p class="fh-sub" style="margin:12px 0 0">
+            这个图看的是「<b>你到场了没有</b>」；签到按钮与本周活动明细在 <b>我的考勤</b>。
+        </p>
+    </div>
+
+    <!-- ==================== 常用功能 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">常用功能</p>
+        <div class="fh-funcs">
+            <!-- 🔄 2026-10-04 新增：**组长专用入口**。
+                 【为什么是新增】`/me/group`（T-017 组长页）之前**全站没有任何入口** ——
+                   功能写了、页面也在，但谁都点不到，等于不存在。这里补上。
+                 🔒 sec:authorize="hasRole('LEADER')"：ROLE_LEADER 是
+                   DbUserDetailsService 在**登录时派生**出来的（依据 study_groups.leader_user_id），
+                   不需要改任何人的主角色。**非组长这一段整个不渲染** —— 看不到、也点不到。 -->
+            <a class="fh-func" sec:authorize="hasRole('LEADER')" th:href="@{/me/group}">
+                <span class="fh-func-icon"><svg th:replace="~{fragments/icons :: ic-users}"></svg></span>
+                <span class="fh-func-text"><b>我的小组</b><small>本组的组员姓名与人数</small></span>
+                <span class="fh-func-arrow">›</span>
+            </a>
+            <a class="fh-func" th:href="@{/me/attendance}">
+                <span class="fh-func-icon"><svg th:replace="~{fragments/icons :: ic-calendar}"></svg></span>
+                <span class="fh-func-text"><b>我的考勤</b><small>签到按钮与本周活动</small></span>
+                <span class="fh-func-arrow">›</span>
+            </a>
+            <a class="fh-func" th:href="@{/me/profile}">
+                <span class="fh-func-icon"><svg th:replace="~{fragments/icons :: ic-user}"></svg></span>
+                <span class="fh-func-text"><b>我的资料</b><small>档案与联系方式</small></span>
+                <span class="fh-func-arrow">›</span>
+            </a>
+            <!-- T-032：获奖记录 + 公开意愿开关（🔒 只有本人能决定是否对外公开） -->
+            <a class="fh-func" th:href="@{/me/awards}">
+                <span class="fh-func-icon"><svg th:replace="~{fragments/icons :: ic-star}"></svg></span>
+                <span class="fh-func-text"><b>我的获奖</b><small>获奖记录与公开意愿</small></span>
+                <span class="fh-func-arrow">›</span>
+            </a>
+            <!-- ⚠️ 修改密码放在【最后】—— 项目负责人的要求：不要放最上面 -->
+            <a class="fh-func" th:href="@{/me/password}">
+                <span class="fh-func-icon"><svg th:replace="~{fragments/icons :: ic-key}"></svg></span>
+                <span class="fh-func-text"><b>修改密码</b><small>定期更换更安全</small></span>
+                <span class="fh-func-arrow">›</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

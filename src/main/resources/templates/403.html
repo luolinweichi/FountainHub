@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  403 无权限（T-007；T-043 视觉落地）
+  【为什么要专门做一个 403 页面】
+    默认的 403 是 Whitelabel 白板页，又丑又没有出口。
+    这里明确告诉用户"你没有权限"，并给一条回首页的路。
+  ⚠️ 这个页面要能接受【任何 HTTP 方法】（POST 也要），否则会变成 405 —— 见 ErrorPageController。
+-->
+<head th:replace="~{fragments/layout :: head('403')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-center">
+<div class="fh-card fh-text-c">
+    <div class="fh-bigcode fh-code-403">403</div>
+    <div class="fh-soon-icon" style="background:var(--fh-err-bg);color:var(--fh-err-fg)">
+        <svg th:replace="~{fragments/icons :: ic-lock}"></svg>
+    </div>
+    <h1 class="fh-title" style="font-size:24px">你没有权限访问这个页面</h1>
+    <p class="fh-sub">
+        这个页面只对<b>指导老师、正社长、副社长</b>开放。<br>
+        如果你是学员或组长，看到这个提示是正常的。
+    </p>
+    <a th:href="@{/}" class="fh-btn fh-btn-main">回到首页</a>
+</div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

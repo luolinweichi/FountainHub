@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!-- 站点设置（T-042）：更换首页背景图。⚠️ 只有一张；作用范围 = 【整个首页】（导航以下、页脚以上），不是 Hero。 -->
+<head th:replace="~{fragments/layout :: head('站点设置')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">站点设置</h1>
+    <p class="fh-sub">这里可以更换首页的背景图。</p>
+
+    <!-- 提示条：保存成功 / 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}"><span>✅</span><span th:text="${saved}">已保存</span></div>
+    <div class="fh-alert fh-alert-err" th:if="${error}"><span>❌</span><span th:text="${error}">出错了</span></div>
+
+    <!-- ==================== 卡片一：首页背景图 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">首页背景图</p>
+
+        <!-- 当前背景图预览（无自定义时显示默认背景 + 徽标） -->
+        <div class="fh-bgpreview" id="bgPreview">
+            <img th:if="${background != null}" th:src="${background}" alt="当前背景图" id="bgImg">
+            <div class="fh-bgdefault" th:unless="${background != null}">
+                <span class="fh-bgbadge">当前为默认背景</span>
+                <span class="fh-bgdefault-t">默认渐变背景</span>
+            </div>
+            <span class="fh-bgbadge fh-bgbadge-r" th:if="${background != null}">当前自定义背景</span>
+        </div>
+
+        <p class="fh-bgmsg" id="bgMsg"></p>
+
+        <p style="margin-top:16px">
+            <input type="file" id="bgFile" accept="image/*" style="display:none">
+            <button type="button" class="fh-btn fh-btn-main" id="bgPick">更换图片</button>
+        </p>
+
+        <p class="fh-hint" style="margin-top:10px">
+            建议 1920 × 1080 以上横向图片，单张 ≤ 5MB，仅支持 jpg / jpeg / png / gif / webp。
+        </p>
+
+        <!-- 恢复默认（危险/不可逆 → 二次确认） -->
+        <form th:action="@{/admin/settings/background/reset}" method="post" id="resetForm"
+              th:if="${background != null}" style="margin-top:14px">
+            <button type="submit" class="fh-btn" style="border-color:var(--fh-err-fg,#C0392B);color:var(--fh-err-fg,#C0392B)">
+                恢复默认背景
+            </button>
+        </form>
+    </div>
+
+    <!-- ==================== 卡片二：显示效果预览 ==================== -->
+    <div class="fh-card">
+        <p class="fh-sec-title">显示效果预览</p>
+        <p class="fh-sub" style="margin-bottom:12px">
+            整页效果示意：背景图铺满 <b>导航以下</b> 的整个首页，上面叠一层 <b>白色 40% 遮罩</b>；
+            内容卡片（下面的白色方块）盖在遮罩之上，所以文字不受影响。
+        </p>
+        <div class="fh-bgdemo" th:classappend="${background != null} ? 'fh-on'"
+             th:style="${background != null} ? |--fh-home-img:url('${background}')|">
+            <div class="fh-bgdemo-inner">
+                <p class="fh-bgdemo-title" th:text="${clubName}">【请填写社团名称】</p>
+                <p class="fh-bgdemo-slogan" th:text="${clubSlogan}"></p>
+                <div class="fh-bgdemo-card"></div>
+                <div class="fh-bgdemo-card" style="width:62%"></div>
+            </div>
+        </div>
+        <p class="fh-hint" style="margin-top:10px">
+            没配背景图时（默认）：这里显示默认浅色渐变底，首页也和现在**一模一样**。
+        </p>
+    </div>
+
+    <p class="fh-hint">背景图作用于<b>整个首页</b>（导航以下、页脚以上）；其它页面保持纯色底。建议由社长上传并确认图片版权来源。</p>
+
+    <!-- ══════════════════ 全站文案配置（2026-10-07 新增）══════════════════
+         ⚠️ 表单是【循环生成】的：字段清单在 `entity/SiteTextKeys.java` 里。
+            以后加一项文案，只改那一个文件，**这里一行都不用动** ✅
+            （手写 40 多个输入框一定会漏、会拼错 name。）
+         ⚠️ 每个输入框的 `name` **就是配置键本身**（如 home.hero.title），
+            后端用一个 Map 全收下，再按注册表白名单过滤保存。
+         ⚠️ 本页【不能用 mdInitEditor】——它内部只认第一个 [data-md-toolbar]，
+            本页有几十个文本框，一调就会全部串到同一个工具栏上 ❌
+            所以这里只调 mdToHtml()，用【一个】事件委托自己做「预览」。
+         ⚠️ 折叠面板依赖 Bootstrap 的 JS（CDN）。万一 CDN 打不开、面板点不开展开，
+            **字段仍然在 DOM 里、仍然会随表单提交**，不会丢数据 ✅ -->
+    <form th:action="@{/admin/settings/text}" method="post" id="textForm">
+
+        <div class="fh-card fh-savetop">
+            <button type="submit" class="fh-btn fh-btn-main">💾 保存所有文案</button>
+            <span class="fh-hint">下面所有输入框**一次保存**。某一项留空 = 页面上显示该处的占位提示（如「【请填写：…】」）。</span>
+        </div>
+
+        <div class="accordion" id="textAcc">
+            <div class="accordion-item fh-acc" th:each="g, gs : ${textGroups}">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button"
+                            th:classappend="${not gs.first} ? 'collapsed'"
+                            data-bs-toggle="collapse"
+                            th:data-bs-target="'#accG' + ${gs.index}"
+                            th:aria-expanded="${gs.first}">
+                        <b th:text="${g.key}">首页文案</b>
+                        <span class="fh-acc-n" th:text="${#maps.size(g.value)} + ' 组'">1 组</span>
+                    </button>
+                </h2>
+                <div class="accordion-collapse collapse" th:classappend="${gs.first} ? 'show'"
+                     th:id="'accG' + ${gs.index}" data-bs-parent="#textAcc">
+                    <div class="accordion-body">
+
+                        <!-- 该面板下的每个折叠子项（= 页面上一个区块） -->
+                        <div class="fh-subacc" th:each="blk, bs : ${g.value}">
+                            <button class="fh-subacc-h" type="button" data-bs-toggle="collapse"
+                                    th:data-bs-target="'#accB' + ${gs.index} + '_' + ${bs.index}">
+                                <span th:text="${blk.key}">社团定位</span>
+                                <span class="fh-subacc-n" th:text="${#lists.size(blk.value)} + ' 项'">2 项</span>
+                            </button>
+                            <div class="collapse" th:id="'accB' + ${gs.index} + '_' + ${bs.index}">
+                                <div class="fh-subacc-b">
+
+                                    <div class="fh-field" th:each="it : ${blk.value}">
+                                        <label th:for="'f_' + ${#strings.replace(it.key,'.','_')}"
+                                               th:text="${it.label}">大标题</label>
+                                        <span class="fh-hint" th:text="'（' + ${it.key} + '）'"></span>
+
+                                        <textarea th:if="${it.multiline}" class="form-control" rows="4"
+                                                  th:id="'f_' + ${#strings.replace(it.key,'.','_')}"
+                                                  th:name="${it.key}"
+                                                  th:text="${textValues[it.key]}"></textarea>
+
+                                        <input th:unless="${it.multiline}" type="text" class="form-control"
+                                               th:id="'f_' + ${#strings.replace(it.key,'.','_')}"
+                                               th:name="${it.key}"
+                                               th:value="${textValues[it.key]}">
+
+                                        <div th:if="${it.markdown}">
+                                            <button type="button" class="fh-btn fh-btn-sm fh-pv-btn"
+                                                    th:data-src="'f_' + ${#strings.replace(it.key,'.','_')}"
+                                                    th:data-tgt="'pv_' + ${#strings.replace(it.key,'.','_')}">
+                                                预览 Markdown
+                                            </button>
+                                            <div class="fh-pv"
+                                                 th:id="'pv_' + ${#strings.replace(it.key,'.','_')}"></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fh-card fh-savetop">
+            <button type="submit" class="fh-btn fh-btn-main">💾 保存所有文案</button>
+            <span class="fh-hint">这类长表单只有一个按钮很难用，所以顶部、底部各放一个（提交的是同一个表单）。</span>
+        </div>
+    </form>
+</div>
+
+<script th:src="@{/js/crop.js}"></script>
+<script th:src="@{/js/upload.js}"></script>
+<script>
+/* ============================================================================
+ * 站点设置页的上传逻辑（T-042）
+ * ============================================================================
+ * ⚠️【2026-10-04 修的一个真 bug】
+ *   原来这里直接调用了 fhUpload(...)，但那个函数是定义在 news-form.html 里的
+ *   —— 它是【那个页面的局部函数】，在设置页根本不存在 ❌
+ *   结果：点上传 → JS 报 ReferenceError → 用户看到的就是「一直上传不上去」，
+ *         而且页面上连报错都没有（因为异常在事件回调里被吞了）。
+ *   👉 修法：把公共的上传函数**抽到 static/js/upload.js**，两个页面都引它。
+ * ========================================================================== */
+
+var fileInput = document.getElementById("bgFile");
+var msg = document.getElementById("bgMsg");
+
+document.getElementById("bgPick").addEventListener("click", function () { fileInput.click(); });
+
+/* 恢复默认前二次确认（不可逆操作） */
+var rf = document.getElementById("resetForm");
+if (rf) {
+    rf.addEventListener("submit", function (e) {
+        if (!confirm("确定恢复默认背景吗？当前的自定义背景将不再使用。")) { e.preventDefault(); }
+    });
+}
+
+fileInput.addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) { return; }
+    var input = this;
+    if (f.size > 5 * 1024 * 1024) { msg.textContent = "❌ 图片超过 5MB，请换一张小一点的"; input.value = ""; return; }
+    msg.textContent = "请在上方框选要保留的区域…";
+
+    /* 背景图是 16:9 的横图 —— 竖图直接铺会被压变形，所以先让用户裁一下 */
+    fhCrop(f, function (blob) {
+        if (!blob) { msg.textContent = "已取消"; input.value = ""; return; }
+        msg.textContent = "上传中…";
+        var cropped = new File([blob], "background.png", { type: "image/png" });
+        fhUpload(cropped, function (url) {
+            msg.textContent = "✅ 图片已上传，正在保存…";
+
+            /* 【2026-10-04 修的真 bug】
+               原来这里用 document.createElement("form") 拼一个表单去 POST，
+               并且把隐藏字段名写成了 mh.content —— 那是【请求头的名字】X-CSRF-TOKEN。
+               而 Spring Security 的 CSRF 过滤器对【表单】只认字段名 _csrf，
+               对【请求头】才认 X-CSRF-TOKEN。名字用错了 → 后端收不到 token → 403。
+               修法：和上传一样用 fetch 带【请求头】提交，这条路是验证过通的。 */
+            var mt = document.querySelector('meta[name="_csrf"]');
+            var mh = document.querySelector('meta[name="_csrf_header"]');
+            var hd = { "Content-Type": "application/x-www-form-urlencoded" };
+            if (mt && mh) { hd[mh.content] = mt.content; }
+            fetch("/admin/settings/background", {
+                method: "POST",
+                headers: hd,
+                body: "url=" + encodeURIComponent(url)
+            }).then(function () {
+                /* 成功：整页刷新，让 Thymeleaf 重新渲染成「当前自定义背景」状态 */
+                location.href = "/admin/settings";
+            }).catch(function () {
+                msg.textContent = "❌ 保存失败，请刷新重试";
+            });
+        }, function (m) { msg.textContent = "❌ " + m; input.value = ""; });
+    });
+});
+</script>
+
+<script th:src="@{/js/md.js}"></script>
+<script>
+/* ============================================================================
+ * 全站文案 · Markdown 预览（2026-10-07）
+ * ============================================================================
+ * ⚠️【为什么不用 md.js 里的 mdInitEditor】
+ *   它内部是 `document.querySelector("[data-md-toolbar]")` —— **只认第一个工具栏**。
+ *   本页有几十个文本框，如果每个都调一次 mdInitEditor：
+ *     几十个监听器会**全绑到同一个工具栏**上 → 点一次「B」同时往几十个框里插语法 ❌
+ *   ✅ 所以这里只调纯函数 `mdToHtml()`，用【一个】事件委托自己做预览。
+ *   ✅ 顺带：md.js 一行都不用改（它还被新闻详情页用着）。
+ * ========================================================================== */
+document.getElementById("textForm").addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".fh-pv-btn");
+    if (!btn) { return; }
+    ev.preventDefault();
+    var src = document.getElementById(btn.dataset.src);
+    var tgt = document.getElementById(btn.dataset.tgt);
+    if (!src || !tgt) { return; }
+    tgt.innerHTML = mdToHtml(src.value || "");
+    tgt.style.display = "block";
+});
+</script>
+<style>
+    .fh-title { font-size:22px; margin:0 0 6px; }
+    .fh-sec-title { font-size:15px; font-weight:600; color:var(--fh-ink-title,#1F2D3D); margin:0 0 14px; }
+    .fh-bgpreview { position:relative; width:100%; aspect-ratio:16/9; border-radius:18px; overflow:hidden; background:linear-gradient(120deg,#E8F0FF,#F7FAFF); }
+    .fh-bgpreview img { width:100%; height:100%; object-fit:cover; display:block; }
+    .fh-bgdefault { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+    .fh-bgdefault-t { font-size:14px; color:#8397A3; }
+    .fh-bgbadge { position:absolute; left:14px; top:14px; background:rgba(8,18,30,.62); color:#fff; font-size:12px; padding:4px 12px; border-radius:9999px; }
+    .fh-bgbadge-r { left:auto; right:14px; }
+    .fh-bgmsg { font-size:13px; margin:12px 0 0; color:var(--fh-ink-2,#5A6B75); }
+    .fh-bgdemo { position:relative; width:100%; height:220px; border-radius:16px; overflow:hidden; background:linear-gradient(120deg,#E8F0FF,#F7FAFF); background-size:cover; background-position:center; }
+    /* 有背景图时：和首页一模一样的做法 —— 图片 + 白色 40% 遮罩，叠在【同一元素的两层 background】上 */
+    .fh-bgdemo.fh-on { background-image:linear-gradient(rgba(255,255,255,.4),rgba(255,255,255,.4)), var(--fh-home-img); background-size:cover, cover; background-position:center, center; }
+    .fh-bgdemo-inner { position:relative; z-index:2; padding:26px 28px; }
+    .fh-bgdemo-title { margin:0 0 4px; font-size:24px; font-weight:700; color:#0F2027; }
+    .fh-bgdemo-slogan { margin:0; font-size:13px; color:#145AFF; }
+    /* 内容卡片示意：盖在遮罩之上（所以文字永远清晰） */
+    .fh-bgdemo-card { height:34px; margin-top:12px; background:#fff; border-radius:10px; box-shadow:0 1px 3px rgba(15,32,39,.06); }
+    /* ── 全站文案配置（2026-10-07）── */
+    .fh-savetop { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .fh-acc { border:1px solid var(--fh-hairline,#E3E9EE); border-radius:14px; overflow:hidden; margin-bottom:12px; background:#fff; }
+    .fh-acc-n { color:var(--fh-ink-3,#8397A3); font-weight:400; font-size:13px; margin-left:8px; }
+    .fh-subacc { border:1px solid var(--fh-hairline,#E3E9EE); border-radius:12px; margin-bottom:10px; overflow:hidden; }
+    .fh-subacc-h { width:100%; text-align:left; background:#F8FAFC; border:0; padding:11px 16px; font-size:14px;
+                   font-weight:600; color:var(--fh-ink-title,#1F2D3D); cursor:pointer;
+                   display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .fh-subacc-h:hover { background:#F1F5F9; }
+    .fh-subacc-n { font-weight:400; font-size:12px; color:var(--fh-ink-3,#8397A3); }
+    .fh-subacc-b { padding:16px 18px 2px; border-top:1px solid var(--fh-hairline,#E3E9EE); }
+    .fh-subacc-b .fh-field { margin-bottom:16px; }
+    .fh-subacc-b label { font-weight:600; }
+    .fh-pv-btn { margin-top:8px; }
+    .fh-pv { display:none; margin-top:10px; padding:12px 16px; border:1px solid var(--fh-hairline,#E3E9EE);
+             border-radius:10px; background:#fff; font-size:14px; line-height:1.8; }
+</style>
+</body>
+</html>

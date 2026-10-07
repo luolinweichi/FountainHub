@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  获奖展示墙（T-033 · 对外公开页）。
+  🔒 公开页规则（都在 PublicAwardService 里实现，本页只负责显示）：
+     · 只显示【本人同意公开】的学员；团队奖里没同意的**姓名根本不会出现在 HTML 里**
+     · 一条奖如果没人同意公开 → 整条不出现
+     · **不显示证书照片**（证书上有未同意公开的队友姓名）
+     · 不显示手机号 / 学号 / 班级 / 联系方式
+  ⚠️ 没有设计稿，按 docs/08 的 token 与组件规范实现。
+-->
+<head th:replace="~{fragments/layout :: head('获奖')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page">
+    <h1 class="fh-title">社团获奖</h1>
+    <p class="fh-sub">
+        社团成员在各类比赛中拿到的奖项。
+        🔒 这里<b>只展示本人同意公开</b>的获奖；<b>不展示任何联系方式</b>。
+    </p>
+
+    <!-- 筛选（GET 表单，零 JS） -->
+    <div class="fh-card">
+        <form method="get" th:action="@{/awards}" class="fh-flex">
+            <label>级别
+                <select name="level" style="width:auto">
+                    <option value="">全部</option>
+                    <option th:each="l : ${levels}" th:value="${l.name()}" th:text="${l.label}"
+                            th:selected="${filterLevel == l.name()}">省级</option>
+                </select>
+            </label>
+            <label>年份
+                <select name="year" style="width:auto">
+                    <option value="">全部</option>
+                    <option th:each="y : ${years}" th:value="${y}" th:text="${y}"
+                            th:selected="${filterYear == #strings.toString(y)}">2026</option>
+                </select>
+            </label>
+            <button type="submit" class="fh-btn">筛选</button>
+            <a class="fh-btn" th:href="@{/awards}">重置</a>
+            <span class="fh-hint" style="margin-left:auto" th:text="|共 ${totalCount} 条公开获奖|">共 0 条</span>
+        </form>
+    </div>
+
+    <!-- 空状态（D 类 · 无数据：平静的灰） -->
+    <div class="fh-empty" th:if="${#lists.isEmpty(rows)}">
+        <svg th:replace="~{fragments/icons :: ic-star}"></svg>
+        <div class="fh-empty-title">暂时还没有公开的获奖</div>
+        <div>获奖记录要由本人同意公开后，才会出现在这里。</div>
+    </div>
+
+    <!-- 获奖卡片网格 -->
+    <div class="row g-3" th:unless="${#lists.isEmpty(rows)}">
+        <div class="col-md-6 col-xl-4" th:each="r : ${rows}">
+            <div class="fh-card fh-awardcard">
+                <p class="fh-awardcard-head">
+                    <span class="fh-badge fh-cat" th:text="${r.award.awardLevel.label}">省级</span>
+                    <!-- ⚠️ 金色只用在「奖项」这一处语义上（docs/08 §3：获奖成就=唯一允许用金的语义，见标签集合行）；
+                         本卡不再加金线/金边，避免一页列很多奖时金色泛滥 -->
+                    <span class="fh-badge fh-tag-gold" th:text="${r.award.prize.label}">一等奖</span>
+                    <span class="fh-badge fh-internal" th:if="${r.team}">团队奖</span>
+                </p>
+                <h3 th:text="${r.award.competitionName}">比赛名称</h3>
+                <p class="fh-sub">
+                    <span th:text="${r.award.organizer} ?: '举办方未填'">举办方</span>
+                    <span th:if="${r.award.awardDate != null}" th:text="| · ${r.award.awardDate}|"></span>
+                </p>
+                <p class="fh-hint" th:if="${r.award.advisorName != null}"
+                   th:text="|指导老师：${r.award.advisorName}|">指导老师</p>
+
+                <!-- ⭐ 获奖人：只列出同意公开的人 -->
+                <p class="fh-awardcard-names">
+                    <span th:each="n : ${r.memberNames}" th:text="${n}" class="fh-awardname">姓名</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

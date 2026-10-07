@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!--
+  ===========================================================================
+  首页（公开页）—— T-014 建骨架 → T-027 接最新新闻 → T-043 视觉落地改版
+  ===========================================================================
+  【结构（docs/08 §6 / docs/01 FR-12.1b）】
+    ① Hero：社团名 + 主口号 + 一句简介 + 注册按钮
+       （🔄 开源脱敏 2026-10-04：社团名与口号都改读全站常量，本注释不再写具体值）
+    ② 焦点图轮播        ← ⬜ 属 T-041，本次【不做】，这里先放一条"招新动态"引导条
+    ③ 左「社团简介」 / 右「最新新闻」两栏
+    ④ 功能入口卡片（5 张：学员管理 / 我的资料 / 加入我们 / 账号安全 / 考勤签到）
+    ⑤ 获奖公示（有公开获奖时才渲染）
+    （🔄 2026-10-07：原来的「系统建设进度」整块已按要求**删除**；
+       Hero 四段文案 + 左栏「社团简介」改为**后台可配**（/admin/settings））
+
+  🔒🔒 【首页是公开页】—— 两件绝对不能犯的错：
+    ① 取新闻必须按游客视角过滤：只取 PUBLISHED，并跳过 isInternal
+       （和 /news 列表用的是同一条规则 —— 公开页的红线只有一条，不能这里松那里紧）
+    ② 页面上【绝不能出现任何学员手机号】（docs/spec.md §3.3）
+  ===========================================================================
+-->
+<head th:replace="~{fragments/layout :: head('首页')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<!-- ==================== T-042：整页背景图容器 ====================
+     【需求方口径】「是整个首页的背景图，不是 Hero 的背景图」
+     · 这一层包住【导航以下 → 内容结束】的全部首页内容，背景图铺满它；
+     · 遮罩不是额外 DOM，而是与图片叠在【同一个元素的两层 background】上（见 fh.css 的 .fh-homewrap）——
+       所以内容卡片天然在遮罩之上，不会有层级问题；
+     · ⚠️ 两个 th:* 都带条件：**没配背景图时这一层不带任何样式**，首页与改动前像素级一致；
+     · ⚠️ 行内变量用 |...| 字面量替换（上一版在这里踩过坑：th:style 里拼字符串被当字面量输出）。 -->
+<div class="fh-homewrap"
+     th:classappend="${homeBackground != null} ? 'fh-on'"
+     th:style="${homeBackground != null} ? |--fh-home-img:url('${homeBackground}')|">
+
+<div class="fh-page">
+
+    <!-- ==================== ① Hero ==================== -->
+    <!-- 背景层（浅蓝渐变）+ 遮罩层 + 内容层 三层结构（docs/08 §8）；
+         背景图方案见 T-042，将来接真图只换背景层，遮罩与内容层不动 -->
+    <div class="fh-hero">
+        <!-- 装饰：四角星 + 双拱水幕弧线（docs/08 §8 允许的唯一装饰语言） -->
+        <span class="fh-hero-deco"><svg th:replace="~{fragments/icons :: ic-arch-deco}"></svg></span>
+
+        <div class="fh-hero-inner">
+            <!-- 🔄 2026-10-07（项目负责人选「甲」）：大标题改为**后台可配**，默认是社团名。
+                 ⚠️ 于是"社团名"有【两处】可改：这里 + GlobalModelAdvice 的 CLUB_NAME。
+                    导航栏/页脚读的仍是 CLUB_NAME —— 改的时候请一起改，别改出不一致。 -->
+            <h1 th:text="${siteText['home.hero.title']}">【请填写社团名称】</h1>
+            <!-- 🔄 开源脱敏（2026-10-04）：口号读全站常量 ${clubSlogan}（默认空串）。
+                 ⚠️ 这里【故意不写静态占位文本】—— 写了就等于把原口号留在源码里。 -->
+            <p class="fh-hero-slogan" th:text="${clubSlogan}"></p>
+            <!-- 🔄 改成占位符（2026-10-04）：原句写死了具体描述（学科方向 + 招新门槛），
+                 那是作者社团的情况，别的社团用不上 → 换成占位提示。使用者请替换这一句。 -->
+            <!-- 🔄 2026-10-07：副标题改为后台可配。
+                 style="white-space:pre-line" 让配置里的换行原样显示（纯文本，按需求这里不做 Markdown） -->
+            <p class="fh-hero-desc" style="white-space:pre-line"
+               th:text="${siteText['home.hero.subtitle']}">【请填写：一句话介绍你们社团做什么，2 行以内。】</p>
+
+            <!-- 游客：注册 + 登录 -->
+            <div sec:authorize="isAnonymous()" class="fh-hero-actions">
+                <!-- 🔄 开源脱敏（2026-10-04）：文案跟着 ${clubName} 走，不再写死社团名。
+                     这样使用者只改 GlobalModelAdvice 的 CLUB_NAME 一处即可。 -->
+                <a class="fh-btn fh-btn-main" th:href="@{/register}"
+                   th:text="${siteText['home.hero.buttonText']}">注册加入</a>
+                <a class="fh-btn fh-btn-outline" th:href="@{/login}">登录</a>
+            </div>
+
+            <!-- 已登录：打个招呼 + 快捷入口 -->
+            <div sec:authorize="!isAnonymous()" class="fh-hero-actions">
+                <span class="fh-welcome">你好，<b th:text="${navUserName}">同学</b>，欢迎回来</span>
+                <a class="fh-btn fh-btn-outline fh-btn-sm" th:href="@{/me}">我的主页</a>
+                <a class="fh-btn fh-btn-ghost fh-btn-sm" th:href="@{/me/attendance}">去签到</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ③ ⭐ 焦点图轮播（T-041）====================
+         🔒 取数规则与 T-026/T-027 完全一致：只取【已发布】且【非仅登录可见】的新闻。
+            草稿与内部新闻【绝不能】出现在首页 —— 首页是公开页。
+         控件：左右箭头 + 圆点；5 秒自动播、鼠标移上去暂停（交互在 static/js/carousel.js）。
+         空状态：一条都没有时显示默认横幅，不留空白。 -->
+    <div class="fh-slide" data-carousel th:if="${!#lists.isEmpty(focusNews)}">
+        <a class="fh-slide-item" th:each="n, st : ${focusNews}"
+           th:classappend="${st.index == 0} ? 'is-on'"
+           th:href="@{/news/{id}(id=${n.id})}" data-slide>
+            <img th:if="${n.coverImage != null}" th:src="${n.coverImage}" th:alt="${n.title}">
+            <span class="fh-slide-ph" th:if="${n.coverImage == null}">
+                <span class="fh-slide-ph-icon">🖼</span>
+                <span class="fh-slide-ph-t1">暂无封面图</span>
+                <span class="fh-slide-ph-t2">建议尺寸 1200 × 400</span>
+            </span>
+            <span class="fh-slide-cap">
+                <span class="fh-slide-title" th:text="${n.title}">标题</span>
+                <span class="fh-slide-meta">
+                    <span class="fh-top" th:if="${n.isTop}">置顶</span>
+                    <span class="fh-slide-tag" th:text="${n.category.label}">通知</span>
+                    <span th:text="${#temporals.format(n.publishedAt, 'yyyy-MM-dd')}">2026-10-04</span>
+                </span>
+            </span>
+        </a>
+        <button class="fh-slide-arrow" type="button" data-prev aria-label="上一张">‹</button>
+        <button class="fh-slide-arrow" type="button" data-next aria-label="下一张">›</button>
+        <div class="fh-slide-dots">
+            <span th:each="n, st : ${focusNews}" th:classappend="${st.index == 0} ? 'is-on'" data-dot></span>
+        </div>
+    </div>
+
+    <!-- 一条新闻都没有时的默认横幅 -->
+    <div class="fh-slide" th:if="${#lists.isEmpty(focusNews)}">
+        <div class="fh-slide-default">
+            <h2 th:text="${clubName}">【请填写社团名称】</h2>
+            <p th:text="${clubSlogan}"></p>
+        </div>
+    </div>
+
+    <!-- ==================== ④ 左右两栏（T-041 起：比例为 1 : 2）====================
+         ⭐ 需求方要求：窄的那栏 = 轮播宽的 1/3。
+            轮播宽 1200px → 窄栏 400px → 两栏就是 1fr : 2fr（见 fh.css 的 --fh-col-split）。
+         左 = 社团简介（窄，1/3）  右 = 最新新闻（宽，2/3） -->
+    <div class="fh-2col mt-1">
+
+        <!-- 左：社团简介 -->
+        <div>
+            <div class="fh-card fh-intro" style="height:100%">
+                <p class="fh-sec-title">社团简介</p>
+                <!-- 🔄 开源脱敏（2026-10-04）：原文案含【真实社团名】+【学校场景描述】（年级、学校），
+                     属于"能定位到具体学校"的信息 → 整段换成占位提示。
+                     ⚠️ 使用者请把下面这句话换成你自己社团的简介。 -->
+                <!-- 🔄 2026-10-07：改为后台可配（/admin/settings → 首页文案 → 「社团简介」卡片正文）。
+                     white-space:pre-line → 配置里的换行原样显示（纯文本，按需求不做 Markdown） -->
+                <p style="white-space:pre-line" th:text="${siteText['home.about.content']}">请输入您的社团简介</p>
+                <div class="fh-intro-values">
+                    <!-- 按你们的实际情况替换；条数随意增减（这里保留 5 个位置） -->
+                    <span class="fh-tag">【标签 1】</span>
+                    <span class="fh-tag">【标签 2】</span>
+                    <span class="fh-tag">【标签 3】</span>
+                    <span class="fh-tag">【标签 4】</span>
+                    <span class="fh-tag">【标签 5】</span>
+                </div>
+                <!-- 🔄 开源脱敏（2026-10-04）：原社训是社团独有文化，已换成占位提示
+                     （与口号同一处理逻辑：不替换成别的口号，而是留空给使用者自己填）。 -->
+                <p class="fh-hint" style="margin:0">请输入您的社训</p>
+            </div>
+        </div>
+
+        <!-- 右：最新新闻（🔒 只会有「已发布 + 非仅登录可见」的新闻） -->
+        <div>
+            <div class="fh-card" style="height:100%">
+                <p class="fh-sec-title">
+                    <svg style="width:19px;height:19px;color:var(--fh-brand)"
+                         th:replace="~{fragments/icons :: ic-news}"></svg>
+                    最新新闻
+                    <a class="fh-more" th:href="@{/news}">更多 →</a>
+                </p>
+
+                <!-- 空状态（D 类 · 无数据）：一条新闻都没有时给个平静的提示 -->
+                <div class="fh-empty" th:if="${#lists.isEmpty(latestNews)}">
+                    <svg th:replace="~{fragments/icons :: ic-inbox}"></svg>
+                    <div class="fh-empty-title">还没有发布新闻</div>
+                    <div>社长发布后，这里会自动出现。</div>
+                </div>
+
+                <a class="fh-newsrow" th:each="n : ${latestNews}" th:href="@{/news/{id}(id=${n.id})}">
+                    <img class="fh-newsrow-thumb" th:if="${n.coverImage != null}" th:src="${n.coverImage}" alt="封面">
+                    <span class="fh-newsrow-thumb fh-newsrow-noimg" th:if="${n.coverImage == null}">无图</span>
+                    <span class="fh-newsrow-body">
+                        <b class="fh-newsrow-title">
+                            <span th:if="${n.isTop}" class="fh-top">置顶</span>
+                            <span th:text="${n.title}">标题</span>
+                        </b>
+                        <span class="fh-newsrow-meta">
+                            <span class="fh-cat" th:text="${n.category.label}">通知</span>
+                            <span th:text="${#temporals.format(n.publishedAt, 'yyyy-MM-dd')}">2026-10-02</span>
+                        </span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ④ 功能入口卡片 ====================
+         ⭐ 4 张卡：游客也全都能看到（这是 2026-10-04 项目负责人的决定）。
+            没做完/没权限的【不放死链】，改成"即将上线"或引导登录。 -->
+    <div class="row g-4 mt-1">
+
+        <!-- 1. 学员管理：只有社长层 + 指导老师能进 -->
+        <div class="col-md-6 col-xl-3">
+            <div class="fh-card fh-feature">
+                <div class="fh-feature-icon"><svg th:replace="~{fragments/icons :: ic-users}"></svg></div>
+                <h3>学员管理</h3>
+                <p>查看学员列表、审核注册申请、编辑档案、调整角色与状态。</p>
+                <div sec:authorize="hasAnyRole('TEACHER','PRESIDENT','VICE_PRESIDENT')">
+                    <a th:href="@{/admin/students}">进入学员列表 →</a>
+                </div>
+                <!-- 游客 / 学员：说明这是内部入口，不放死链 -->
+                <span sec:authorize="!hasAnyRole('TEACHER','PRESIDENT','VICE_PRESIDENT')"
+                      class="fh-feature-soon">仅社长与指导老师可用</span>
+            </div>
+        </div>
+
+        <!-- 2. 我的资料：登录后可见 -->
+        <div class="col-md-6 col-xl-3">
+            <div class="fh-card fh-feature">
+                <div class="fh-feature-icon"><svg th:replace="~{fragments/icons :: ic-user}"></svg></div>
+                <h3>我的资料</h3>
+                <p>查看自己的档案与在社状态，更新 QQ / 微信 / 邮箱。</p>
+                <div sec:authorize="!isAnonymous()">
+                    <a th:href="@{/me/profile}">打开我的资料 →</a>
+                </div>
+                <a sec:authorize="isAnonymous()" href="#"
+                   data-bs-toggle="modal" data-bs-target="#loginModal">登录后查看 →</a>
+            </div>
+        </div>
+
+        <!-- 3. 加入我们：游客注册入口 -->
+        <div class="col-md-6 col-xl-3">
+            <div class="fh-card fh-feature">
+                <div class="fh-feature-icon"><svg th:replace="~{fragments/icons :: ic-edit}"></svg></div>
+                <h3>加入我们</h3>
+                <p>填写基本信息提交申请，社长审核通过后即可登录使用。</p>
+                <div sec:authorize="isAnonymous()">
+                    <a th:href="@{/register}">填写注册申请 →</a>
+                </div>
+                <span sec:authorize="!isAnonymous()" class="fh-feature-soon">你已经是社员了</span>
+            </div>
+        </div>
+
+        <!-- 4. 账号安全：登录后可见 -->
+        <div class="col-md-6 col-xl-3">
+            <div class="fh-card fh-feature">
+                <div class="fh-feature-icon"><svg th:replace="~{fragments/icons :: ic-key}"></svg></div>
+                <h3>账号安全</h3>
+                <p>定期更换密码，保护自己的账号。</p>
+                <div sec:authorize="!isAnonymous()">
+                    <a th:href="@{/me/password}">修改密码 →</a>
+                </div>
+                <span sec:authorize="isAnonymous()" class="fh-feature-soon">登录后可用</span>
+            </div>
+        </div>
+
+        <!-- 5. 考勤签到：登录后可直接去签到（🔄 2026-10-07 补）
+             背景：开源时撤掉首页的「学习热力图」、考勤搬到 /me，
+             但**签到入口漏搬了** —— 首页原来只剩"建设进度"里一行文字，点不了。 -->
+        <div class="col-md-6 col-xl-3">
+            <div class="fh-card fh-feature">
+                <div class="fh-feature-icon"><svg th:replace="~{fragments/icons :: ic-calendar-check}"></svg></div>
+                <h3>考勤签到</h3>
+                <p>到场后自助签到，签到日历记录每一天；社长可代打卡并导出考勤表。</p>
+                <div sec:authorize="!isAnonymous()">
+                    <a th:href="@{/me/attendance}">去签到 →</a>
+                </div>
+                <a sec:authorize="isAnonymous()" href="#"
+                   data-bs-toggle="modal" data-bs-target="#loginModal">登录后可用 →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ⑤ ⭐ 获奖公示（T-033） ====================
+         🔒 只显示**本人同意公开**的获奖 —— 数据来自 PublicAwardService，
+            与 /awards 展示墙【同一条规则】（未同意者的姓名不会进入这个页面）。
+         ⚠️ 没有任何公开获奖时，整个区块不渲染（避免首页出现空壳）。
+    -->
+    <div class="fh-card" th:unless="${#lists.isEmpty(publicAwards)}">
+        <p class="fh-sec-title">
+            获奖公示
+            <a class="fh-more" th:href="@{/awards}">全部获奖 →</a>
+        </p>
+        <div>
+            <div class="fh-awardline" th:each="r : ${publicAwards}">
+                <span class="fh-badge fh-cat" th:text="${r.award.awardLevel.label}">省级</span>
+                <span class="fh-badge fh-tag-gold" th:text="${r.award.prize.label}">一等奖</span>
+                <span class="fh-awardline-title" th:text="${r.award.competitionName}">比赛名称</span>
+                <span class="fh-badge fh-internal" th:if="${r.team}">团队奖</span>
+                <span class="fh-awardline-names"
+                      th:text="${#strings.listJoin(r.memberNames, '、')}">获奖人</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+</div><!-- /fh-homewrap —— T-042 整页背景图容器到此结束 -->
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<!-- ⭐ T-041 轮播交互：纯原生 JS，零依赖。
+     ⚠️ 必须放在轮播 HTML【之后】—— 脚本里要 querySelector 那些 data-slide / data-dot。
+     ⚠️ 之前这里漏了这个标签：判断"有没有引过"时用了 t.includes("carousel.js")，
+        结果被上面注释里的 "static/js/carousel.js" 骗到了，以为已经引过 ❌
+        → 箭头和圆点全都没反应（因为根本没有 JS 去绑事件）。 -->
+<script th:src="@{/js/carousel.js}"></script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!-- ═══════════════════════════════════════════════════════════════════════
+     社团介绍 / 招新页（12 个区块）
+     ───────────────────────────────────────────────────────────────────────
+     ⭐⭐ 本页是一份【模板】：所有需要你填的地方都写成 `【请填写：…】`。
+          搜一下 `【请填写` 就能找到全部待填点（共 25 处左右）。
+          结构与样式（12 个区块、栅格、手风琴、金色细线）都是定稿，**不用改**。
+
+     怎么改：
+       1. 把每个 `【请填写：…】` 换成你们社团的真实内容；
+       2. 社团名 / 口号 / 社训在 `GlobalModelAdvice.java` 里改（见 docs/00 第六节）；
+       3. 想增减区块（比如不要「算法竞赛」那张卡）→ 整块删掉即可，不影响别的区块。
+
+     🔒 公开页：**不得出现任何成员姓名 / 手机号 / 联系方式**。
+     ⚠️ 图片一律用「空栏占位」（品牌蓝 + 山形线稿 + 暂无图片），
+        与「无数据」的灰底样式【刻意区分】。
+     ═══════════════════════════════════════════════════════════════════════ -->
+<head th:replace="~{fragments/layout :: head('社团介绍')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page fh-about">
+
+    <!-- ① ══════ Hero：社名 + 口号 + 定位 + 按钮 + 标签 ══════ -->
+    <section class="fh-about-hero">
+        <h1 class="fh-about-h1" th:text="${clubName}">【请填写社团名称】</h1>
+        <!-- 口号读全站常量 ${clubSlogan}（默认空串）。
+             ⚠️ 标签体【故意留空】—— 写了就等于把口号写死在模板里，改不动。 -->
+        <p class="fh-about-slogan" th:text="${clubSlogan}"></p>
+        <!-- 🔄 2026-10-07：改为后台可配。class="fh-mdtarget" + data-md-src
+             → 页面底部统一用 md.js 渲染；⚠️ 元素里保留服务端输出的纯文本，
+               所以【没加载到 JS 时也不会空白】（天然兜底）。
+             ⚠️ 用 <div> 不用 <p>：Markdown 渲染出来可能含 <p>/<ul>，塞进 <p> 是非法 HTML。 -->
+        <div class="fh-about-lead fh-mdtarget" th:data-md-src="${siteText['about.intro']}"
+             th:text="${siteText['about.intro']}">【请填写：一段 1~2 句话的社团定位。】</div>
+        <div class="fh-about-actions">
+            <a class="fh-btn fh-btn-main" th:href="@{/register}"
+               sec:authorize="isAnonymous()" th:text="${siteText['home.hero.buttonText']}">注册加入</a>
+            <a class="fh-btn fh-btn-main" th:href="@{/me}"
+               sec:authorize="!isAnonymous()">进入我的主页</a>
+            <a class="fh-btn" th:href="@{/news}">看看我们在做什么</a>
+        </div>
+        <!-- 🔄 2026-10-07：页首标签改为后台可配（**一行一个**标签） -->
+        <div class="fh-about-tags">
+            <span class="fh-tag" th:each="t : ${heroTags}" th:text="${t}">【标签 1】</span>
+        </div>
+    </section>
+
+    <!-- ② ══════ 三卡区：我们做什么 ══════ -->
+    <section class="fh-about-sec">
+        <h2 class="fh-about-h2" th:text="${siteText['about.what.title']}">我们做什么</h2>
+        <div class="fh-about-3col">
+            <div class="fh-card fh-about-card">
+                <span class="fh-about-ico">◈</span>
+                <h3 th:text="${siteText['about.what.item1.title']}">【活动 1】</h3>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.what.item1.body']}" th:text="${siteText['about.what.item1.body']}">【请填写：这项活动做什么。】</div>
+            </div>
+            <div class="fh-card fh-about-card">
+                <span class="fh-about-ico">◆</span>
+                <h3 th:text="${siteText['about.what.item2.title']}">【活动 2】</h3>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.what.item2.body']}" th:text="${siteText['about.what.item2.body']}">【请填写：这项活动做什么。】</div>
+            </div>
+            <div class="fh-card fh-about-card">
+                <span class="fh-about-ico">◇</span>
+                <h3 th:text="${siteText['about.what.item3.title']}">【活动 3】</h3>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.what.item3.body']}" th:text="${siteText['about.what.item3.body']}">【请填写：这项活动做什么。】</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ③ ══════ 四卡区：我们学的方向 ══════ -->
+    <section class="fh-about-sec">
+        <h2 class="fh-about-h2" th:text="${siteText['about.direction.title']}">我们学的方向</h2>
+        <p class="fh-about-sub" th:text="${siteText['about.direction.sub']}">【请填写：一句话说明怎么选方向。】</p>
+        <div class="fh-about-4col">
+            <div class="fh-card fh-about-mini"><span class="fh-about-ico-sm">◆</span><h4 th:text="${siteText['about.direction.item1.title']}">【方向 1】</h4><p th:text="${siteText['about.direction.item1.body']}">【一句话说明】</p></div>
+            <div class="fh-card fh-about-mini"><span class="fh-about-ico-sm">◇</span><h4 th:text="${siteText['about.direction.item2.title']}">【方向 2】</h4><p th:text="${siteText['about.direction.item2.body']}">【一句话说明】</p></div>
+            <div class="fh-card fh-about-mini"><span class="fh-about-ico-sm">∑</span><h4 th:text="${siteText['about.direction.item3.title']}">【方向 3】</h4><p th:text="${siteText['about.direction.item3.body']}">【一句话说明】</p></div>
+            <div class="fh-card fh-about-mini"><span class="fh-about-ico-sm">✦</span><h4 th:text="${siteText['about.direction.item4.title']}">【方向 4】</h4><p th:text="${siteText['about.direction.item4.body']}">【一句话说明】</p></div>
+        </div>
+        <div class="fh-about-note fh-mdtarget" th:data-md-src="${siteText['about.direction.note']}" th:text="${siteText['about.direction.note']}">【请填写：这些方向的排期。】</div>
+    </section>
+
+    <!-- ④ ══════ 左文右图：社团定位 ══════ -->
+    <section class="fh-about-sec fh-about-split">
+        <div class="fh-about-split-text">
+            <h2 class="fh-about-h2" th:text="${siteText['about.mission.title']}">社团定位</h2>
+            <!-- 🔄 2026-10-07：原来这里是 3 段写死的文字，现在合并成**一段 Markdown**（后台一个大文本框）。
+                 💡 想在正文里解释社团名字的由来？直接在后台那一栏里写就行
+                    （Markdown 支持小标题、列表、加粗）。 -->
+            <div class="fh-mdtarget" th:data-md-src="${siteText['about.mission.content']}"
+                 th:text="${siteText['about.mission.content']}">【请填写：你们的理念。】</div>
+        </div>
+        <div class="fh-about-ph"><span class="fh-about-ph-ico">⛰</span><span>暂无图片</span><small>建议尺寸 560 × 360</small></div>
+    </section>
+
+    <!-- ⑤ ══════ 左图右文：日常活动 ══════ -->
+    <section class="fh-about-sec fh-about-split fh-about-split-rev">
+        <div class="fh-about-ph"><span class="fh-about-ph-ico">⛰</span><span>暂无图片</span><small>建议尺寸 560 × 360</small></div>
+        <div class="fh-about-split-text">
+            <h2 class="fh-about-h2" th:text="${siteText['about.daily.title']}">日常活动</h2>
+            <!-- 🔄 2026-10-07：原来 4 段（带粗体小标签）合并成**一段 Markdown**。
+                 写法示例：**例行活动**：周三 16:00，机房……（Markdown 里 ** ** 就是加粗） -->
+            <div class="fh-mdtarget" th:data-md-src="${siteText['about.daily.content']}"
+                 th:text="${siteText['about.daily.content']}">【请填写：例行活动多久一次。】</div>
+        </div>
+    </section>
+
+    <!-- ⑥ ══════ 价值观标签墙 ══════ -->
+    <section class="fh-about-sec">
+        <h2 class="fh-about-h2" th:text="${siteText['about.values.title']}">我们相信</h2>
+        <p class="fh-about-sub" th:text="${siteText['about.values.sub']}">【请填写：说明一下排序规则。】</p>
+        <!-- 按你们的实际情况替换；条数随意增减（这里保留了 8 个位置） -->
+        <!-- 🔄 2026-10-07：标签墙改为后台可配（**一行一个**，想加几条就写几行） -->
+        <div class="fh-about-tagwall">
+            <span class="fh-tag" th:each="t : ${siteTags}" th:text="${t}">【价值观 1】</span>
+        </div>
+    </section>
+
+    <!-- ⑦ ══════ 单卡区：怎么加入 ══════ -->
+    <section class="fh-about-sec">
+        <h2 class="fh-about-h2" th:text="${siteText['about.join.title']}">怎么加入</h2>
+        <div class="fh-card fh-about-card">
+            <span class="fh-about-ico">①</span>
+            <h3 th:text="${siteText['about.join.cardTitle']}">在线注册</h3>
+            <div class="fh-mdtarget" th:data-md-src="${siteText['about.join.cardBody']}"
+                 th:text="${siteText['about.join.cardBody']}">【请填写：注册流程说明。】</div>
+        </div>
+        <div class="fh-about-note fh-mdtarget" th:data-md-src="${siteText['about.join.note']}"
+             th:text="${siteText['about.join.note']}">【请填写：你们的招新时间与安排。】</div>
+    </section>
+
+    <!-- ⑧ ══════ 常见问题（手风琴，用 HTML 原生 <details>，零 JS）══════
+         下面是 5 个占位位。**建议覆盖这几类问题**（都是招新时最常被问的）：
+           ① 零基础能不能来  ② 要不要自带设备  ③ 每周要花多少时间
+           ④ 要不要交钱      ⑤ 已经有基础的人来会不会太简单 -->
+    <section class="fh-about-sec">
+        <h2 class="fh-about-h2" th:text="${siteText['about.faq.title']}">常见问题</h2>
+        <div class="fh-about-faq">
+            <!-- 🔄 2026-10-07：5 组问答应为后台可配。
+                 ⚠️ 用 HTML 原生 <details> 而不是 Bootstrap 手风琴 ——
+                    零 JS、CDN 挂了也能点开（首页 FAQ 一直是这么做的）。
+                 ⚠️ 因为是"空值显示占位符"的规则，所以 5 组**都会显示**；
+                    不想要哪一组，就在后台把它改成你自己想问的问题即可。 -->
+            <details><summary th:text="${siteText['about.faq.q1']}">【问题 1】</summary>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.faq.a1']}"
+                     th:text="${siteText['about.faq.a1']}">【请填写：回答 1。】</div></details>
+            <details><summary th:text="${siteText['about.faq.q2']}">【问题 2】</summary>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.faq.a2']}"
+                     th:text="${siteText['about.faq.a2']}">【请填写：回答 2。】</div></details>
+            <details><summary th:text="${siteText['about.faq.q3']}">【问题 3】</summary>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.faq.a3']}"
+                     th:text="${siteText['about.faq.a3']}">【请填写：回答 3。】</div></details>
+            <details><summary th:text="${siteText['about.faq.q4']}">【问题 4】</summary>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.faq.a4']}"
+                     th:text="${siteText['about.faq.a4']}">【请填写：回答 4。】</div></details>
+            <details><summary th:text="${siteText['about.faq.q5']}">【问题 5】</summary>
+                <div class="fh-mdtarget" th:data-md-src="${siteText['about.faq.a5']}"
+                     th:text="${siteText['about.faq.a5']}">【请填写：回答 5。】</div></details>
+        </div>
+    </section>
+
+    <!-- ⑨ ══════ 一行大字 + 仪式金细线（这行大字 = 社训）══════ -->
+    <section class="fh-about-sec fh-about-big">
+        <!-- 社训在 GlobalModelAdvice 的 CLUB_SLOGAN 里改（见 docs/00 第六节第 2 项）。
+             这里保留占位文字，是因为"社训"和"口号"在我们这里算同一处配置。 -->
+        <p class="fh-about-bigtext" th:text="${siteText['about.motto']}">请输入您的社训</p>
+        <span class="fh-about-goldline"></span>
+    </section>
+
+    <!-- ⑩ ══════ 号召区 ══════ -->
+    <section class="fh-about-sec fh-about-cta">
+        <p class="fh-about-ctatext" th:text="${siteText['about.cta.text']}">【请填写：一句号召的话。】</p>
+        <div class="fh-about-actions">
+            <a class="fh-btn fh-btn-main" th:href="@{/register}"
+               sec:authorize="isAnonymous()" th:text="${siteText['home.hero.buttonText']}">注册加入</a>
+            <a class="fh-btn fh-btn-main" th:href="@{/me}"
+               sec:authorize="!isAnonymous()">进入我的主页</a>
+            <a class="fh-btn" th:href="@{/news}">先看看新闻</a>
+        </div>
+    </section>
+
+</div>
+
+<style>
+/* ══════ 社团介绍页 —— 全部用 fh-about-* 前缀，绝不碰公共类 ══════ */
+.fh-about section { margin-bottom: 72px; }
+.fh-about-hero { text-align: center; padding: 24px 0 8px; }
+.fh-about-h1 { font-size: 46px; letter-spacing: -1.5px; margin: 0 0 8px; color: var(--fh-ink-title); }
+.fh-about-slogan { font-size: 17px; color: var(--fh-brand); margin: 0 0 20px; }
+.fh-about-lead { max-width: 660px; margin: 0 auto 26px; font-size: 15px; line-height: 1.95; color: var(--fh-ink-2); }
+.fh-about-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.fh-about-tags { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.fh-about-h2 { font-size: 24px; margin: 0 0 8px; color: var(--fh-ink-title); }
+.fh-about-sub { font-size: 14px; color: var(--fh-ink-2); margin: 0 0 22px; }
+.fh-about-note { font-size: 12px; color: #A8B6BF; margin: 14px 0 0; }
+.fh-about-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.fh-about-4col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.fh-about-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.fh-about-card { padding: 24px; }
+.fh-about-card h3 { font-size: 17px; margin: 12px 0 8px; color: var(--fh-ink-title); }
+.fh-about-card p { font-size: 14px; line-height: 1.9; color: var(--fh-ink-2); margin: 0 0 8px; }
+.fh-about-ico { display: inline-flex; width: 38px; height: 38px; border-radius: 12px; background: var(--fh-brand-light); color: var(--fh-brand); align-items: center; justify-content: center; font-size: 18px; }
+.fh-about-mini { padding: 16px; }
+.fh-about-mini h4 { font-size: 15px; margin: 8px 0 4px; color: var(--fh-ink-title); }
+.fh-about-mini p { font-size: 12px; color: #8A9AA6; margin: 0; }
+.fh-about-ico-sm { font-size: 18px; color: var(--fh-brand); }
+.fh-about-split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+.fh-about-split-text p { font-size: 14px; line-height: 2; color: var(--fh-ink-2); margin: 0 0 12px; }
+/* 「空栏占位」—— 品牌蓝 + 山形线稿 + 暂无图片（与「无数据」灰底样式刻意区分）*/
+.fh-about-ph { aspect-ratio: 560 / 360; border-radius: 20px; background: var(--fh-brand-light); color: var(--fh-brand); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+.fh-about-ph-ico { font-size: 40px; opacity: .55; }
+.fh-about-ph small { font-size: 12px; color: #7C9BD6; }
+.fh-about-tagwall { display: flex; flex-wrap: wrap; gap: 10px; }
+.fh-about-faq { border-top: 1px solid #E8EEF4; }
+.fh-about-faq details { border-bottom: 1px solid #E8EEF4; padding: 4px 0; }
+.fh-about-faq summary { cursor: pointer; padding: 16px 4px; font-size: 15px; color: var(--fh-ink-title); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.fh-about-faq summary::-webkit-details-marker { display: none; }
+.fh-about-faq summary::after { content: "▾"; color: #A8B6BF; font-size: 12px; }
+.fh-about-faq details[open] summary::after { content: "▴"; }
+.fh-about-faq p { margin: 0 4px 16px; font-size: 14px; line-height: 1.9; color: var(--fh-ink-2); }
+.fh-about-big { text-align: center; }
+.fh-about-bigtext { font-size: 30px; font-weight: 700; letter-spacing: 1px; color: var(--fh-ink-title); margin: 0 0 18px; }
+.fh-about-goldline { display: block; width: 200px; height: 3px; margin: 0 auto; background: #C9A227; border-radius: 9999px; }
+.fh-about-cta { text-align: center; padding: 16px 0 40px; }
+.fh-about-ctatext { font-size: 18px; color: var(--fh-ink-title); margin: 0 0 20px; }
+</style>
+
+<!-- 🔄 2026-10-07：把页面里所有 .fh-mdtarget 的 data-md-src 用 md.js 渲染成 Markdown。
+     ✅ 复用现有 md.js（mdToHtml 内部是"先转义再解析"，XSS 安全），**md.js 一行未改**
+     ✅ 没加载到 JS（或 CDN 挂了）时，元素里本来就是服务端输出的纯文本 —— 不会空白 ✅ -->
+<script th:src="@{/js/md.js}"></script>
+<script>
+document.querySelectorAll('.fh-mdtarget').forEach(function (el) {
+    el.innerHTML = mdToHtml(el.dataset.mdSrc || '');
+});
+</script>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

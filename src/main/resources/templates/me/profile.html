@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  「我的资料」（T-013；T-043 视觉落地）
+  🔒 学员自助只能改 QQ / 微信 / 邮箱 —— 姓名、学号、手机号只能管理员改
+     （手机号是登录凭据，学员能随便改就谈不上账号安全了）。
+  ⭐ 这一页有两种区域，必须【视觉可分】（docs/08 §10 约束 8）：
+     只读区 = .fh-info 表格 + .fh-ro（深色加粗）；
+     可编辑区 = 正常输入框（下沉底）。
+-->
+<head th:replace="~{fragments/layout :: head('我的资料')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page">
+    <h1 class="fh-title">我的资料</h1>
+
+    <!-- 提示：A 成功 / B 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">已保存</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">出错了</span>
+    </div>
+
+    <div class="fh-card">
+        <p class="fh-sec-title">基本信息（只读）</p>
+
+        <!--
+            这一整块都是【只读】的：姓名、学号、用户名、手机号、角色、状态。
+            想改？找管理员。
+        -->
+        <table class="fh-info">
+            <tr><td>真实姓名</td><td class="fh-ro" th:text="${me.realName}">张三</td></tr>
+            <tr><td>学号</td><td class="fh-ro mono" th:text="${me.studentNo} ?: '—'">2025001</td></tr>
+            <tr><td>用户名</td><td class="fh-ro" th:text="${me.username}">zhangsan</td></tr>
+            <tr>
+                <td>手机号</td>
+                <td>
+                    <span class="fh-ro mono" th:text="${me.phone} ?: '—'">13800000003</span>
+                    <span class="fh-hint" style="margin-left:8px">（登录凭据，如需更换请联系社长）</span>
+                </td>
+            </tr>
+            <tr><td>角色</td><td class="fh-ro" th:text="${me.role.label}">学员</td></tr>
+            <tr><td>状态</td><td class="fh-ro" th:text="${me.status.label}">在读</td></tr>
+            <tr><td>入社日期</td><td class="fh-ro mono" th:text="${profile?.joinDate} ?: '—'">2026-10-02</td></tr>
+        </table>
+    </div>
+
+    <div class="fh-card">
+        <p class="fh-sec-title">联系方式（可自行修改）</p>
+
+        <!--
+            ⚠️ 必须用 th:action —— 自动带 CSRF token
+            ⚠️ 表单里【只有】这 3 个字段。服务器那边也只接收这 3 个，
+               所以就算有人在请求里偷塞 role=TEACHER，也不会生效。
+        -->
+        <form th:action="@{/me/profile}" method="post">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="qq">QQ</label>
+                    <input type="text" id="qq" name="qq" class="form-control"
+                           th:value="${profile?.qq}">
+                </div>
+                <div class="col-md-4">
+                    <label for="wechat">微信</label>
+                    <input type="text" id="wechat" name="wechat" class="form-control"
+                           th:value="${profile?.wechat}">
+                </div>
+                <div class="col-md-4">
+                    <label for="email">邮箱</label>
+                    <input type="text" id="email" name="email" class="form-control"
+                           th:value="${profile?.email}">
+                </div>
+            </div>
+
+            <button type="submit" class="fh-btn fh-btn-main" style="margin-top:18px">保存联系方式</button>
+        </form>
+
+        <p class="fh-sub fh-flex" style="margin:18px 0 0">
+            <svg style="width:16px;height:16px;color:var(--fh-brand)"
+                 th:replace="~{fragments/icons :: ic-lock}"></svg>
+            这三项属于联系方式，只有<b>你自己和管理员</b>能看到，不会出现在公开页面上。
+        </p>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

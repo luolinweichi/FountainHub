@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.fountainhub</groupId>
+    <artifactId>fountainhub</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>FountainHub</name>
+    <description>FountainHub · 校园社团管理系统（服务端渲染）</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- ========== 里程碑 1：能跑起网页 ========== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- ========== 里程碑 2：连接数据库（2026-10-02 启用） ========== -->
+        <!--
+            这两个依赖分别是什么、为什么要它们：
+
+            spring-boot-starter-data-jpa
+              → 这就是 ORM（对象关系映射）。有了它，我们操作数据库时写的是
+                Java 对象和方法（userRepository.save(user)），
+                底层的 SQL 由 Hibernate 自动生成，不用手写一大堆 SQL。
+
+            mysql-connector-j
+              → JDBC 驱动。Java 程序和 MySQL 之间靠它对话，
+                相当于「翻译官」：Java 用 JDBC 说话，MySQL 才听得懂。
+                注意 scope=runtime：写代码时用不到它，只有运行时才需要。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            🔄 R-002：原来的 spring-security-crypto 显式依赖已经删除。
+
+              原因：T-003 时它是为了用 BCryptPasswordEncoder 单独引入的；
+                    T-004 引入 spring-boot-starter-security 之后，
+                    这个包已经被【传递依赖】包含进来了，再写一遍是冗余。
+
+              BCrypt 仍然可用 —— 由下面的 spring-boot-starter-security 提供。
+              验证方法：启动后能用 admin 登录（登录会走 passwordEncoder.matches）。
+        -->
+
+        <!-- ========== 里程碑 3：账号与登录（T-004 于 2026-10-02 启用） ========== -->
+        <!--
+            spring-boot-starter-security
+              → 认证（你是谁）+ 授权（你能干什么）。装上之后【所有页面默认都要登录】，
+                所以 SecurityConfig 里的"放行清单"必须写对。
+
+            thymeleaf-extras-springsecurity6
+              → 让 Thymeleaf 页面能写 sec:authorize="hasRole('PRESIDENT')" 这样的标签，
+                按角色决定"这段 HTML 要不要渲染"。T-005 的登录页会用上。
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
+
+        <!-- 开发热重载：改完代码自动重启 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- ========== 代码简化：Lombok（2026-10-02 经项目负责人批准新增） ========== -->
+        <!--
+            Lombok 是「编译期帮你抄代码的秘书」：
+              你只写字段，它在编译那一刻把 getter/setter/无参构造器"缝"进 .class 文件，
+              源码保持干净。它不改你的 .java 文件，运行时不依赖它（所以 optional=true）。
+            版本不用写：父 POM（spring-boot-starter-parent 3.3.5）已统一管理为 1.18.34。
+
+            ⚠️ 本项目使用规范（项目负责人定的）：
+               只允许在【实体类 / DTO】上使用：@Getter、@Setter、@NoArgsConstructor、@AllArgsConstructor
+               【禁止使用 @Data】—— 它会自动生成 equals/hashCode，
+               而 JPA 实体在延迟加载/代理场景下，自动生成的 equals/hashCode 极易出错。
+        -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

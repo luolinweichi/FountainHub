@@ -1,0 +1,1081 @@
+/* ============================================================================
+ * fh.css · FountainHub 全站样式（T-043 视觉落地）
+ * ============================================================================
+ *
+ * 【这个文件是什么】
+ *   把 2026-10-04 定稿的 UI 视觉设计（docs/08-视觉与品牌规范.md）翻译成 CSS。
+ *   在它之前，项目是 **0 个 CSS 文件、0 个设计 token**，所有样式散在
+ *   layout.html 的 <style> 和各页自己的 <style> 里，同一个颜色写十几遍。
+ *
+ * 【为什么改成独立 CSS 文件】
+ *   ① 一个色值只写一次（token），改配色只改上面那一段；
+ *   ② 页面里不用再复制公共样式，HTML 变干净；
+ *   ③ 浏览器可以缓存它，页面更快。
+ *
+ * 【⚠️ 为什么按钮/表单/表格都自己写，不直接用 Bootstrap 的类】
+ *   Bootstrap 走的是 CDN（layout.html 里那一行）。**沙箱没有外网，
+ *   项目负责人的浏览器也可能加载不到 CDN** —— 一旦加载不到，
+ *   用 .btn / .form-control / .table 的页面会退化成裸 HTML。
+ *   所以这里把「看得见的东西」全部自己实现一遍：
+ *   即使 Bootstrap 一个字都没加载，页面依然完整、能看、能用。
+ *   Bootstrap 只留两个用处：① 栅格 row/col-md-* ② 登录弹窗 modal。
+ *
+ * 【token 命名】统一 --fh- 前缀（fh = FountainHub），和 Bootstrap 的 --bs- 区分开。
+ * ========================================================================== */
+
+/* ===================== 1. 设计 token ===================== */
+:root {
+    /* -------- 1.1 色彩（docs/08 §3.1） -------- */
+    --fh-canvas:       #FCFCFC;   /* 画布：页面底色 */
+    --fh-wash:         #F0F4FE;   /* 洗色带：Hero / 区块分组底 / 表头底 */
+    --fh-surface:      #FFFFFF;   /* 卡片面 */
+    --fh-sunken:       #F1F5F9;   /* 下沉面：输入框底 / 禁用态 */
+    --fh-brand:        #145AFF;   /* ⭐ 品牌蓝：主按钮 / 链接 / 当前页高亮 */
+    --fh-brand-light:  #E8EFFF;   /* 主色浅底：选中行 / 蓝标签底 / 信息提示底 */
+    --fh-brand-dark:   #0B3FBF;   /* 主按钮 hover / 按下 */
+    --fh-blue-alt:     #3B82F6;   /* 次强调蓝：图表辅助 / 信息提示 */
+    --fh-midnight:     #0A1F5C;   /* 午夜蓝：深色面（页脚 / 代码块底） */
+    --fh-navy:         #0B2E8C;   /* 藏青：深色区块 */
+    --fh-ice:          #D9EBFF;   /* 冰蓝：Hero 洗色 / 装饰弧线 */
+    --fh-cyan:         #62D3FF;   /* 青色高光：仅数据可视化与装饰线 */
+    --fh-focus:        #0099FF;   /* 焦点环 */
+    --fh-ink-title:    #020520;   /* 标题墨 */
+    --fh-ink:          #14141E;   /* 正文墨 */
+    --fh-ink-2:        #374151;   /* 次级文字 */
+    --fh-ink-3:        #6B7280;   /* 弱化文字：时间戳 / 占位符 / 脚注 */
+    --fh-hairline:     #E2E8F0;   /* 发丝线 */
+    --fh-gold:         #C9A227;   /* 仪式金：唯一点缀色，每页 ≤ 3 处，不做按钮 */
+    --fh-gold-light:   #F7EFD6;   /* 仪式金浅底 */
+
+    /* -------- 1.2 状态色（"底 + 字"必须成对，不要纯色大块；docs/08 §3.2） -------- */
+    --fh-ok-bg:    #EDFBF0;  --fh-ok-fg:    #0E8F22;   /* 成功 / 审核通过 / 已签到 */
+    --fh-warn-bg:  #FFF4E8;  --fh-warn-fg:  #B26A00;   /* 待处理 / 待审核 / 草稿 */
+    --fh-err-bg:   #FEEDEB;  --fh-err-fg:   #C0392B;   /* 失败 / 删除 / 拒绝 / 403 */
+    --fh-info-bg:  #E8EFFF;  --fh-info-fg:  #145AFF;   /* 信息 / 中性提示 */
+    --fh-off-bg:   #F1F5F9;  --fh-off-fg:   #6B7280;   /* 中性 / 未激活 / 无数据 */
+    --fh-gold-bg:  #F7EFD6;  --fh-gold-fg:  #8A6A12;   /* 成就 / 荣誉（唯一允许用金的语义） */
+
+    /* -------- 1.3 圆角（docs/08 §5.3：全站不允许 0px 直角） -------- */
+    --fh-r-pill:   9999px;    /* 按钮 / 标签 / 胶囊 / 导航项 / 头像 */
+    --fh-r-input:  12px;      /* 输入框 / 下拉框 */
+    --fh-r-inner:  14px;      /* 内层小卡 */
+    --fh-r-card:   22px;      /* 外层容器卡 */
+    --fh-r-hero:   32px;      /* 大区块 / Hero 面板 */
+    --fh-r-cell:   3px;       /* ⭐ 日历格子（密排，唯一允许小圆角） */
+
+    /* -------- 1.4 阴影（同一屏不超过两种；docs/08 §5.4） -------- */
+    --fh-sh-1: 0 1px 2px rgba(2,5,32,.05);
+    --fh-sh-2: 0 1px 3px rgba(2,5,32,.07);
+    --fh-sh-card: 0 1px 2px rgba(2,5,32,.05), 0 8px 24px -12px rgba(2,5,32,.10);
+    --fh-sh-pop: 0 12px 40px -16px rgba(2,5,32,.18);
+
+    /* -------- 1.5 间距刻度（docs/08 §5.1） -------- */
+    --fh-s1: 4px;  --fh-s2: 8px;  --fh-s3: 12px; --fh-s4: 16px;
+    --fh-s5: 20px; --fh-s6: 24px; --fh-s8: 32px; --fh-s10: 40px;
+
+    /* -------- 1.6 字体栈（系统栈，不依赖 Google Fonts） -------- */
+    --fh-font: "Microsoft YaHei", "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", system-ui, sans-serif;
+    --fh-font-num: "Roboto Mono", ui-monospace, Consolas, monospace;   /* 等宽数字，纵向对齐 */
+    --fh-font-code: Consolas, Monaco, "Roboto Mono", monospace;
+}
+
+/* ===================== 2. 兼容 Bootstrap 的变量 =====================
+ * Bootstrap 5.3 用 --bs-* 定义自己的颜色。不覆盖的话，
+ * .btn-primary 会是 Bootstrap 默认的 #0d6efd，和品牌蓝 #145AFF 打架。
+ * 这里把 Bootstrap 的语义色"翻译"成我们的 token。 */
+:root,
+[data-bs-theme="light"] {
+    --bs-primary: var(--fh-brand);
+    --bs-primary-rgb: 20, 90, 255;
+    --bs-link-color: var(--fh-brand);
+    --bs-link-hover-color: var(--fh-brand-dark);
+    --bs-body-color: var(--fh-ink);
+    --bs-body-bg: var(--fh-canvas);
+    --bs-border-color: var(--fh-hairline);
+    --bs-font-sans-serif: var(--fh-font);
+    --bs-border-radius: var(--fh-r-input);
+    --bs-border-radius-sm: var(--fh-r-input);
+}
+
+/* ===================== 3. 基础 ===================== */
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+    margin: 0;
+    background: var(--fh-canvas);
+    color: var(--fh-ink);
+    font-family: var(--fh-font);
+    font-size: 16px;
+    line-height: 1.63;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--fh-brand); text-decoration: none; }
+a:hover { color: var(--fh-brand-dark); text-decoration: underline; }
+
+h1 { font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: -1.2px; color: var(--fh-ink-title); margin: 0 0 var(--fh-s3); }
+h2 { font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -.5px;  color: var(--fh-ink-title); margin: 0 0 var(--fh-s3); }
+h3 { font-size: 22px; font-weight: 600; line-height: 1.4;  letter-spacing: -.2px;  color: var(--fh-ink-title); margin: 0 0 var(--fh-s2); }
+h4 { font-size: 18px; font-weight: 500; line-height: 1.4;  color: var(--fh-ink-title); margin: 0 0 var(--fh-s2); }
+
+/* 数字一律等宽 + 表格数字对齐（docs/08 §4.3） */
+b, strong { font-weight: 600; }
+.num, .fh-metric-value, .fh-stat-value, .mono { font-variant-numeric: tabular-nums; }
+
+/* 焦点可达性：键盘 Tab 时看得见 */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 153, 255, .25);
+    border-color: var(--fh-focus) !important;
+}
+
+/* ===================== 4. 布局容器 ===================== */
+.fh-page {
+    max-width: 1200px;          /* ⭐ 1040 → 1200（docs/08 §5.2） */
+    margin: 0 auto;
+    padding: var(--fh-s6) var(--fh-s6) var(--fh-s10);
+}
+
+/* 居中布局（登录 / 注册 / 改密 / 403 / 404 / 500） */
+.fh-center {
+    min-height: calc(100vh - 64px);
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--fh-s8) var(--fh-s4);
+}
+.fh-center > .fh-card { width: 100%; max-width: 480px; margin: 0; }
+.fh-center.fh-center-wide > .fh-card { max-width: 620px; }
+
+/* ===================== 5. 顶部导航 ===================== */
+.fh-nav {
+    background: var(--fh-surface);
+    border-bottom: 1px solid var(--fh-hairline);
+    position: sticky; top: 0; z-index: 1030;
+}
+.fh-nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 var(--fh-s6);
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--fh-s4);
+}
+
+/* 品牌区：社徽占位块 + 系统名 + 社团名 */
+.fh-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex: 0 0 auto; }
+.fh-brand:hover { text-decoration: none; }
+.fh-logo {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--fh-brand-light);
+    border: 1px solid var(--fh-hairline);
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
+    /* ⚠️ 社徽 4 版备选尚未定稿（docs/08 §1.2）→ 这里用中性圆形占位块 */
+}
+/* ===== 图标兜底（T-043 修）=====
+   背景：th:replace 会把 <svg> 自身的 style/class 全部替换掉，
+        所以「写在 svg 上的尺寸」一律无效。icons.html 里每个 fragment 都带了
+        width="1em" height="1em" 兜底；CSS 里「父元素 class + svg」的规则优先级更高，照常覆盖。 */
+.fh-logo svg { width: 18px; height: 18px; color: var(--fh-brand); }
+.fh-brand-text { display: flex; align-items: baseline; gap: 8px; }
+.fh-brand-name { font-size: 17px; font-weight: 600; color: var(--fh-ink-title); letter-spacing: .2px; }
+.fh-brand-club { font-size: 13px; color: var(--fh-ink-3); }
+
+/* 主导航项：药丸，当前页蓝字 + 浅蓝底 */
+.fh-links { display: flex; align-items: center; gap: var(--fh-s1); }
+.fh-navitem {
+    color: var(--fh-ink-2); font-size: 15px; text-decoration: none;
+    padding: 7px 16px; border-radius: var(--fh-r-pill);
+    transition: background .15s ease, color .15s ease;
+}
+.fh-navitem:hover { color: var(--fh-brand); background: var(--fh-brand-light); text-decoration: none; }
+.fh-navon { color: var(--fh-brand) !important; background: var(--fh-brand-light); font-weight: 600; }
+
+/* 右侧：你好，XXX + 退出 / 登录按钮 */
+.fh-user { display: flex; align-items: center; gap: var(--fh-s3); }
+.fh-hello { font-size: 14px; color: var(--fh-ink-3); white-space: nowrap; }
+.fh-hello b { color: var(--fh-ink-title); }
+.fh-logout { display: inline; margin: 0; }
+.fh-logout button {
+    background: transparent; border: 1px solid var(--fh-hairline); color: var(--fh-ink-2);
+    font-size: 13px; padding: 5px 14px; border-radius: var(--fh-r-pill); cursor: pointer;
+    transition: border-color .15s ease, color .15s ease;
+}
+.fh-logout button:hover { border-color: var(--fh-brand); color: var(--fh-brand); }
+
+/* ===================== 6. 后台子导航 ===================== */
+.fh-subnav { background: var(--fh-wash); border-bottom: 1px solid var(--fh-hairline); }
+.fh-subnav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 var(--fh-s6);
+    display: flex; align-items: center; gap: var(--fh-s1); flex-wrap: wrap;
+}
+.fh-subnav-inner > a {
+    color: var(--fh-ink-2); text-decoration: none; font-size: 14px;
+    padding: 11px 14px 9px; border-bottom: 2px solid transparent;
+}
+.fh-subnav-inner > a:hover { color: var(--fh-brand); text-decoration: none; }
+.fh-subon { color: var(--fh-brand) !important; font-weight: 600; border-bottom-color: var(--fh-brand) !important; }
+
+/* ===================== 7. 卡片 ===================== */
+.fh-card {
+    background: var(--fh-surface);
+    border: 1px solid var(--fh-hairline);
+    border-radius: var(--fh-r-card);
+    padding: 28px 32px;
+    box-shadow: var(--fh-sh-card);
+    margin-bottom: var(--fh-s5);
+}
+.fh-card > h1:first-child, .fh-card > h2:first-child { margin-top: 0; }
+
+.fh-sub { color: var(--fh-ink-3); font-size: 14px; margin: 0 0 var(--fh-s4); line-height: 1.7; }
+
+/* 区块标题：短蓝线 + 文字（设计稿里的区块标题样式） */
+.fh-sec-title {
+    font-size: 19px; font-weight: 600; color: var(--fh-ink-title);
+    margin: 0 0 var(--fh-s5); padding-left: 12px; position: relative;
+    display: flex; align-items: center; gap: 10px;
+}
+.fh-sec-title::before {
+    content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 17px; border-radius: 2px; background: var(--fh-brand);
+}
+.fh-sec-title .fh-more, .fh-sec-title .fh-sub { margin-left: auto; }
+
+.fh-more { font-size: 13px; font-weight: 400; color: var(--fh-brand); }
+.fh-title { font-size: 26px; margin: 0 0 var(--fh-s4); letter-spacing: -.4px; }
+.fh-hint { font-size: 12px; color: var(--fh-ink-3); }
+
+/* ===================== 8. 按钮（药丸，全站无直角） ===================== */
+.fh-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 22px; border-radius: var(--fh-r-pill);
+    font-size: 14px; font-family: var(--fh-font); line-height: 1.4;
+    border: 1px solid transparent; cursor: pointer; text-decoration: none;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+.fh-btn:hover { text-decoration: none; }
+
+/* 主按钮：品牌蓝实底（⚠️ 每屏最多 1 个，docs/08 §8） */
+.fh-btn-main, .fh-btn-primary { background: var(--fh-brand); color: #fff !important; }
+.fh-btn-main:hover, .fh-btn-primary:hover { background: var(--fh-brand-dark); color: #fff !important; }
+
+/* 次按钮：蓝描边 */
+.fh-btn-outline { background: var(--fh-surface); color: var(--fh-brand) !important; border-color: var(--fh-brand); }
+.fh-btn-outline:hover { background: var(--fh-brand-light); }
+
+/* 幽灵按钮：灰描边 */
+.fh-btn-ghost { background: var(--fh-surface); color: var(--fh-ink-2) !important; border-color: var(--fh-hairline); }
+.fh-btn-ghost:hover { border-color: var(--fh-ink-3); }
+
+/* 危险按钮：红字或红描边（不用大红实底） */
+.fh-btn-danger, .fh-danger, .fh-ops .fh-danger {
+    background: transparent; color: var(--fh-err-fg) !important;
+    border-color: transparent; padding: 4px 10px;
+}
+.fh-btn-danger:hover { background: var(--fh-err-bg); }
+
+/* 小号按钮（表格行内） */
+.fh-btn-sm { padding: 5px 14px; font-size: 13px; border-radius: var(--fh-r-pill); }
+.fh-btn-gray { background: var(--fh-sunken); color: var(--fh-ink-2) !important; border-color: var(--fh-hairline); }
+
+/* 禁用态 */
+.fh-btn:disabled, .fh-btn-main:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ===================== 9. 表单 ===================== */
+.fh-card label, .fh-field label {
+    display: inline-block; font-size: 13px; color: var(--fh-ink-2);
+    margin: 0 0 var(--fh-s1);
+}
+/* 必填星号 */
+.req::after { content: " *"; color: var(--fh-err-fg); }
+
+input[type=text], input[type=password], input[type=date], input[type=number],
+input[type=email], select, textarea, .form-control, .form-select {
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 14px; font-family: var(--fh-font); color: var(--fh-ink);
+    background: var(--fh-surface);
+    border: 1px solid #CBD5E1;      /* docs/08 §5.5：输入框描边比卡片深一档 */
+    border-radius: var(--fh-r-input);
+    line-height: 1.5;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+input:hover, select:hover, textarea:hover { border-color: var(--fh-ink-3); }
+input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--fh-focus);
+    box-shadow: 0 0 0 3px rgba(0, 153, 255, .25);
+}
+input::placeholder, textarea::placeholder { color: #9AA3AF; }
+input:disabled, select:disabled, textarea:disabled,
+input[readonly], textarea[readonly] {
+    background: var(--fh-sunken); color: var(--fh-ink-3); cursor: not-allowed;
+}
+
+/* 一行里排多个控件的表单（考勤创建、分组编辑） */
+.fh-formrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.fh-formrow > input[type=text], .fh-formrow > select { width: auto; min-width: 150px; }
+.fh-formrow > label { margin: 0; }
+.fh-field { margin: 0 0 var(--fh-s3); }
+.fh-field label { margin-right: 8px; }
+
+.form-text, small.fh-hint { display: block; font-size: 12px; color: var(--fh-ink-3); margin-top: 5px; }
+
+/* ===================== 10. 表格（docs/08 §8：表头浅灰、行高 44–48px、无斑马纹） ===================== */
+table, .fh-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 12px 16px; border-bottom: 1px solid var(--fh-hairline); text-align: left; vertical-align: middle; }
+thead th {
+    background: var(--fh-sunken);
+    color: var(--fh-ink-2); font-weight: 500; font-size: 12px;
+    letter-spacing: .2px; white-space: nowrap;
+}
+thead th:first-child { border-top-left-radius: var(--fh-r-input); }
+thead th:last-child  { border-top-right-radius: var(--fh-r-input); }
+tbody tr { height: 48px; }
+tbody tr:hover { background: #F8FAFF; }        /* hover 浅蓝底 */
+tbody tr:last-child td { border-bottom: 0; }
+td b { font-variant-numeric: tabular-nums; }
+
+/* 只读信息表（我的资料 / 学员详情）：标签列窄、值列加重 */
+.fh-info { width: 100%; border-collapse: collapse; font-size: 14px; }
+.fh-info td { padding: 10px 6px; border-bottom: 1px solid var(--fh-sunken); }
+.fh-info td:first-child { color: var(--fh-ink-3); width: 130px; }
+/* ⭐ 只读 vs 可编辑必须视觉可分（docs/08 §10 约束 8）：
+   只读值 = 深色 + 600 字重；可编辑 = 输入框（下沉底） */
+.fh-ro { color: var(--fh-ink-title); font-weight: 600; }
+
+/* ===================== 11. 标签 / 徽标（全部药丸 + 12px + 浅底深字） ===================== */
+.tag, .fh-tag, .fh-cat, .fh-top, .fh-internal, .fh-pub, .fh-draft, .fh-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: var(--fh-r-pill);
+    font-size: 12px; line-height: 1.5; white-space: nowrap;
+    background: var(--fh-off-bg); color: var(--fh-off-fg);
+}
+/* 每个标签前面一个小圆点 —— 保证"颜色 + 形状"双通道，不只靠颜色 */
+.tag::before, .fh-badge::before {
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; flex: 0 0 auto;
+}
+.tag.active,  .fh-pub   { background: var(--fh-ok-bg);   color: var(--fh-ok-fg); }
+.tag.pending, .fh-draft { background: var(--fh-warn-bg); color: var(--fh-warn-fg); }
+.tag.off                { background: var(--fh-err-bg);  color: var(--fh-err-fg); }
+.fh-cat                 { background: var(--fh-info-bg); color: var(--fh-info-fg); }
+.fh-top                 { background: var(--fh-gold-bg); color: var(--fh-gold-fg); font-weight: 500; }
+.fh-internal            { background: var(--fh-info-bg); color: var(--fh-info-fg); }
+.fh-tag-gold            { background: var(--fh-gold-bg); color: var(--fh-gold-fg); }
+
+/* ===================== 12. 提示（⭐ A–F 六类统一，docs/08 §9） =====================
+ * 以前项目里有四套混用写法（alert / fh-card+border-left / fh-ok / 内联 style）。
+ * 现在统一成一套：
+ *   A 成功（页面级）→ .fh-alert.fh-alert-ok
+ *   B 失败（页面级）→ .fh-alert.fh-alert-err
+ *   C 字段级错误   → input.fh-input-err + .fh-field-err
+ *   D 空状态       → .fh-empty（+ 4 种修饰类）
+ *   E 加载中       → .fh-loading
+ *   F 确认类       → 弹窗（本项目暂用 Bootstrap modal，见 layout.html）
+ * ------------------------------------------------------------------------- */
+.fh-alert {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 18px; border-radius: var(--fh-r-inner);
+    font-size: 14px; line-height: 1.7; margin-bottom: var(--fh-s4);
+    border: 1px solid transparent;
+}
+.fh-alert svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; }
+.fh-alert-ok   { background: var(--fh-ok-bg);   color: var(--fh-ok-fg);   border-color: rgba(14,143,34,.18); }
+.fh-alert-err  { background: var(--fh-err-bg);  color: var(--fh-err-fg);  border-color: rgba(192,57,43,.18); }
+.fh-alert-warn { background: var(--fh-warn-bg); color: var(--fh-warn-fg); border-color: rgba(178,106,0,.18); }
+.fh-alert-info { background: var(--fh-info-bg); color: var(--fh-info-fg); border-color: rgba(20,90,255,.18); }
+.fh-alert a { color: inherit; font-weight: 600; text-decoration: underline; }
+
+/* 兼容 Bootstrap 的 alert 类（老页面还在用，避免加载不到 Bootstrap 时变裸文本） */
+.alert { padding: 12px 18px; border-radius: var(--fh-r-inner); font-size: 14px; margin-bottom: var(--fh-s4); border: 1px solid transparent; }
+.alert-success { background: var(--fh-ok-bg);  color: var(--fh-ok-fg);  border-color: rgba(14,143,34,.18); }
+.alert-danger  { background: var(--fh-err-bg); color: var(--fh-err-fg); border-color: rgba(192,57,43,.18); }
+.alert-warning { background: var(--fh-warn-bg); color: var(--fh-warn-fg); }
+.alert-info    { background: var(--fh-info-bg); color: var(--fh-info-fg); }
+
+/* 字段级错误（C 类） */
+.fh-input-err { border-color: var(--fh-err-fg) !important; }
+.fh-field-err { font-size: 12px; color: var(--fh-err-fg); margin-top: 5px; }
+
+/* 行内状态文字（签到页「已签到」这类） */
+.fh-ok { color: var(--fh-ok-fg); font-weight: 600; }
+
+/* ===================== 13. 空状态（D 类，必须分 4 种） ===================== */
+.fh-empty {
+    padding: 44px 20px; text-align: center;
+    color: var(--fh-ink-3); font-size: 14px;
+}
+.fh-empty svg { width: 40px; height: 40px; opacity: .45; margin-bottom: 10px; }
+.fh-empty .fh-empty-title { font-size: 15px; color: var(--fh-ink-2); margin-bottom: 4px; }
+/* ③ 【空栏占位】—— "期待"而不是"空"，所以用品牌蓝 */
+.fh-empty-soon { color: var(--fh-brand); }
+.fh-empty-soon svg { opacity: .8; color: var(--fh-brand); }
+
+/* ===================== 14. 分页 ===================== */
+.fh-pager, .pager {
+    display: flex; align-items: center; gap: var(--fh-s2);
+    margin-top: var(--fh-s5); font-size: 14px; flex-wrap: wrap;
+}
+.fh-pager a, .pager a {
+    padding: 6px 14px; border-radius: var(--fh-r-pill);
+    background: var(--fh-surface); border: 1px solid var(--fh-hairline);
+    color: var(--fh-ink-2); text-decoration: none; font-size: 13px;
+}
+.fh-pager a:hover, .pager a:hover { border-color: var(--fh-brand); color: var(--fh-brand); text-decoration: none; }
+.fh-pager a.fh-on, .pager a.fh-on {
+    background: var(--fh-brand); border-color: var(--fh-brand); color: #fff !important; font-weight: 600;
+}
+.fh-pager .fh-off, .pager .fh-off { color: #C3CED4; padding: 6px 14px; font-size: 13px; }
+
+/* 筛选条（新闻列表 / 学员列表） */
+.fh-filters { display: flex; gap: var(--fh-s2); flex-wrap: wrap; margin-bottom: var(--fh-s4); align-items: center; }
+.fh-filters a {
+    padding: 6px 16px; border-radius: var(--fh-r-pill);
+    background: var(--fh-surface); border: 1px solid var(--fh-hairline);
+    color: var(--fh-ink-2); text-decoration: none; font-size: 13px;
+}
+.fh-filters a:hover { border-color: var(--fh-brand); color: var(--fh-brand); text-decoration: none; }
+.fh-filters a.fh-on { background: var(--fh-brand); border-color: var(--fh-brand); color: #fff !important; font-weight: 600; }
+
+/* ===================== 15. 签到日历（纯 CSS 格子，docs/08 §8） =====================
+ * 🔄 2026-10-04：原来这里叫「日历 / 热力图」—— 学习热力图撤掉后，只剩签到日历用它。 */
+.fh-cal-card { padding: 22px 26px 18px; }
+.fh-stats { display: flex; align-items: center; gap: 26px; padding-bottom: 14px; flex-wrap: wrap; }
+.fh-stat { text-align: center; min-width: 92px; }
+.fh-stat-label { font-size: 12px; color: var(--fh-ink-3); margin-bottom: 6px; }
+.fh-stat-value { font-size: 15px; color: var(--fh-ink); font-variant-numeric: tabular-nums; }
+.fh-stat-value b { font-size: 20px; font-weight: 600; color: var(--fh-ink-title); }
+.fh-green { color: #239A3B; }
+.fh-stat-right { margin-left: auto; display: flex; align-items: center; gap: var(--fh-s2); }
+.fh-year {
+    text-decoration: none; color: var(--fh-ink-2); background: var(--fh-surface);
+    border: 1px solid var(--fh-hairline); border-radius: var(--fh-r-pill);
+    padding: 3px 12px; font-size: 14px;
+}
+.fh-year:hover { border-color: var(--fh-brand); color: var(--fh-brand); text-decoration: none; }
+.fh-yearlabel { font-size: 14px; color: var(--fh-ink); min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+
+.fh-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+/* ⚠️【2026-10-07 修】加 white-space:nowrap —— 行标题是"周一…周日"这种短词，
+   固定 32px 宽一旦遇到更长的文案就会换行、把整块日历挤歪（实测被"例行活动日"挤坏过）。 */
+.fh-rowname { flex: 0 0 32px; font-size: 11px; color: var(--fh-ink-3); white-space: nowrap; }
+.fh-cells { display: flex; flex: 1 1 auto; gap: 3px; }
+.fh-cell {
+    flex: 1 1 0; height: 14px; border-radius: var(--fh-r-cell);
+    background: #DDE3E7; min-width: 0;
+}
+.fh-months { display: flex; flex: 1 1 auto; gap: 0; }
+.fh-months > span { font-size: 11px; color: var(--fh-ink-3); }
+.fh-row-label { margin-bottom: 6px; }
+.fh-cal-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    flex-wrap: wrap; font-size: 13px; color: var(--fh-ink-2); padding-top: 12px;
+    border-top: 1px solid var(--fh-hairline); margin-top: 6px;
+}
+.fh-sep { color: var(--fh-hairline); margin: 0 6px; }
+.fh-legend2 { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.fh-legend2 > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fh-ink-3); }
+.fh-box { display: inline-block; width: 12px; height: 12px; border-radius: var(--fh-r-cell); }
+.fh-encourage { margin: 12px 0 0; font-size: 14px; font-weight: 600; color: var(--fh-brand); }
+.fh-encourage-gold { color: var(--fh-gold-fg); }
+
+/* ===================== 16. 登录弹窗（Bootstrap modal 的自定义外壳） ===================== */
+.fh-modal { border: 0; border-radius: var(--fh-r-card); box-shadow: var(--fh-sh-pop); }
+.fh-modal .modal-header { border-bottom: 1px solid var(--fh-hairline); padding: 18px 24px; }
+.fh-modal .modal-body { padding: 20px 24px 24px; }
+.fh-modal .modal-title { font-size: 18px; color: var(--fh-ink-title); font-weight: 600; }
+.fh-mlabel { font-size: 13px; color: var(--fh-ink-2); margin: 14px 0 5px; }
+.fh-minput { width: 100%; padding: 9px 14px; border: 1px solid #CBD5E1; border-radius: var(--fh-r-input); font-size: 14px; font-family: var(--fh-font); }
+.fh-minput:focus { outline: none; border-color: var(--fh-focus); box-shadow: 0 0 0 3px rgba(0,153,255,.25); }
+.fh-mbtn {
+    width: 100%; margin-top: 20px; padding: 10px; border: 0;
+    border-radius: var(--fh-r-pill); background: var(--fh-brand); color: #fff;
+    font-size: 15px; font-family: var(--fh-font); cursor: pointer;
+}
+.fh-mbtn:hover { background: var(--fh-brand-dark); }
+.fh-mfoot { margin: 14px 0 0; font-size: 13px; color: var(--fh-ink-3); text-align: center; }
+.fh-msep { margin: 0 6px; color: var(--fh-hairline); }
+
+/* ===================== 17. 首页专用 ===================== */
+/* Hero：背景层 + 遮罩层 + 内容层三层结构（docs/08 §8）——
+   现在背景层是白色/浅蓝（背景图方案见 T-042），将来接真图只换背景层 */
+.fh-hero {
+    position: relative;
+    border-radius: var(--fh-r-hero);
+    height: var(--fh-hero-h);
+    padding: 0 40px;
+    display: flex; align-items: center;
+    margin-bottom: var(--fh-s5);
+    overflow: hidden;
+    background: linear-gradient(120deg, var(--fh-ice) 0%, var(--fh-brand-light) 55%, #F7FAFF 100%);
+    border: 1px solid #D6E4FF;
+    box-shadow: none;     /* Hero 用色块，不用阴影 */
+}
+.fh-hero-inner { position: relative; z-index: 2; width: 100%; }
+.fh-hero h1 { font-size: 24px; letter-spacing: -.5px; margin: 0 0 4px; }
+.fh-hero-slogan { margin: 0 0 8px; font-size: 13px; }
+.fh-hero-desc { display: none; }   /* 133px 高的细条放不下长简介 */
+.fh-hero-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fh-welcome { color: var(--fh-ink-2); font-size: 15px; }
+.fh-welcome b { color: var(--fh-ink-title); }
+/* Hero 右侧装饰：四角星 + 双拱水幕弧线（docs/08 §8 允许的唯一装饰语言） */
+.fh-hero-deco {
+    position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+    z-index: 1; pointer-events: none;
+    /* ⚠️【2026-10-04 修】这一行是必须的：
+       装饰 SVG 用的是 stroke="currentColor"，也就是【继承父元素的文字颜色】。
+       T-043 原本把 color:#9FC2FF 写在 <svg style="..."> 上，
+       但我后来为了修 th:replace 的坑，把 class 挪到了外层 <span> 上，
+       结果 color 一起丢了 → SVG 继承了默认的深灰文字色 → 设计稿里的淡蓝变成灰黑。
+       颜色写在 span 上 → 里面的 svg 通过 currentColor 继承到 ✅ */
+    color: #9FC2FF;
+    opacity: .55;
+}
+/* ⚠️ 尺寸必须写在 span 的【子元素 svg】上 —— 因为 th:replace 会把 svg 自身的 style/class 全丢掉 */
+.fh-hero-deco svg { width: 150px; height: 86px; display: block; }   /* 比例跟着新 viewBox 走（210 : 120） */
+
+/* 功能卡片 */
+.fh-feature { height: 100%; display: flex; flex-direction: column; }
+.fh-feature-icon {
+    width: 42px; height: 42px; border-radius: var(--fh-r-input);
+    background: var(--fh-brand-light); color: var(--fh-brand);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: var(--fh-s3);
+}
+.fh-feature-icon svg { width: 20px; height: 20px; }
+.fh-feature h3 { font-size: 17px; margin: 0 0 8px; }
+.fh-feature p { font-size: 14px; color: var(--fh-ink-2); line-height: 1.8; margin: 0 0 14px; flex: 1 1 auto; }
+.fh-feature a { font-size: 14px; font-weight: 500; }
+.fh-feature-off { opacity: .72; }
+.fh-feature-off .fh-feature-icon { background: var(--fh-sunken); color: var(--fh-ink-3); }
+.fh-feature-soon { font-size: 13px; color: var(--fh-ink-3); }
+
+/* 建设进度 */
+.fh-progress { font-size: 14px; margin: 0 0 12px; line-height: 1.7; display: flex; align-items: center; gap: 8px; }
+.fh-progress svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.fh-progress.done { color: var(--fh-ink-2); }
+.fh-progress.done svg { color: var(--fh-ok-fg); }
+.fh-progress.todo { color: var(--fh-ink-3); }
+.fh-progress.todo svg { color: #C3CED4; }
+
+/* 最新新闻行（首页） */
+.fh-newsrow {
+    display: flex; gap: 14px; align-items: center;
+    padding: 12px 4px; border-bottom: 1px solid var(--fh-hairline);
+    text-decoration: none; color: inherit;
+}
+.fh-newsrow:last-child { border-bottom: 0; }
+.fh-newsrow:hover { text-decoration: none; }
+.fh-newsrow:hover .fh-newsrow-title { color: var(--fh-brand); }
+.fh-newsrow-thumb { width: 84px; height: 56px; object-fit: cover; border-radius: var(--fh-r-input); flex: 0 0 auto; }
+.fh-newsrow-noimg {
+    background: var(--fh-sunken); color: var(--fh-ink-3);
+    font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+.fh-newsrow-body { display: flex; flex-direction: column; gap: 6px; }
+.fh-newsrow-title { font-size: 15px; color: var(--fh-ink-title); font-weight: 500; }
+.fh-newsrow-meta { font-size: 12px; color: var(--fh-ink-3); display: flex; gap: 10px; align-items: center; }
+
+/* 社团简介（首页左栏）*/
+.fh-intro p { font-size: 14px; color: var(--fh-ink-2); line-height: 1.9; margin: 0 0 12px; }
+.fh-intro-values { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+
+/* ===================== 18. 新闻页专用 ===================== */
+.fh-newscard {
+    display: flex; gap: 16px; align-items: center;
+    background: var(--fh-surface); border: 1px solid var(--fh-hairline);
+    border-radius: var(--fh-r-inner); padding: 14px 20px; margin-bottom: 12px;
+    text-decoration: none; color: inherit; box-shadow: var(--fh-sh-2);
+    transition: box-shadow .15s ease, border-color .15s ease;
+}
+.fh-newscard:hover { box-shadow: var(--fh-sh-card); text-decoration: none; border-color: #D6E4FF; }
+.fh-thumb { width: 110px; height: 74px; object-fit: cover; border-radius: var(--fh-r-input); flex: 0 0 auto; }
+.fh-thumb-empty {
+    background: var(--fh-sunken); color: var(--fh-ink-3); font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+}
+.fh-newsbody { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.fh-newstitle { margin: 0; font-size: 16px; font-weight: 500; color: var(--fh-ink-title); line-height: 1.5; }
+.fh-newsmeta { margin: 0; font-size: 12px; color: var(--fh-ink-3); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.fh-cover { width: 100%; max-height: 360px; object-fit: cover; border-radius: var(--fh-r-inner); margin-bottom: 20px; }
+/* 正文：行长控制在 640–760px（docs/08 §4.3） */
+.fh-article { font-size: 16px; line-height: 1.8; color: var(--fh-ink); max-width: 760px; }
+.fh-article h1, .fh-article h2, .fh-article h3 { margin: 24px 0 12px; }
+.fh-article p { margin: 0 0 16px; }
+.fh-article img { max-width: 100%; border-radius: var(--fh-r-inner); }
+.fh-article blockquote {
+    margin: 0 0 16px; padding: 10px 18px; border-left: 3px solid var(--fh-brand);
+    border-radius: 0 var(--fh-r-input) var(--fh-r-input) 0;
+    color: var(--fh-ink-2); background: var(--fh-wash);
+}
+.fh-article pre { background: var(--fh-midnight); color: #D7E3E8; padding: 16px; border-radius: var(--fh-r-inner); overflow: auto; }
+.fh-article code { background: var(--fh-sunken); padding: 2px 6px; border-radius: 6px; font-family: var(--fh-font-code); font-size: 14px; }
+.fh-article pre code { background: transparent; padding: 0; }
+.fh-article ul, .fh-article ol { margin: 0 0 16px; padding-left: 24px; }
+
+/* ===================== 19. 后台专用 ===================== */
+/* KPI 数字卡 */
+.fh-metrics { display: flex; gap: var(--fh-s4); flex-wrap: wrap; margin-bottom: var(--fh-s5); }
+.fh-metric {
+    flex: 1 1 170px; background: var(--fh-surface); border: 1px solid var(--fh-hairline);
+    border-radius: var(--fh-r-card); padding: 20px 22px; box-shadow: var(--fh-sh-card);
+}
+.fh-metric-label { font-size: 12px; color: var(--fh-ink-3); margin-bottom: 10px; letter-spacing: .2px; }
+.fh-metric-value { font-size: 30px; font-weight: 600; color: var(--fh-ink-title); line-height: 1.1; letter-spacing: -.5px; }
+.fh-metric-value b { font-size: 30px; }
+.fh-metric-value small { font-size: 14px; font-weight: 400; color: var(--fh-ink-3); margin-left: 4px; }
+.fh-muted { color: #B8C4CC !important; }
+.fh-metric-note { font-size: 11px; color: var(--fh-ink-3); margin-top: 6px; }
+
+/* 分组卡片 */
+.fh-groups { display: flex; gap: var(--fh-s3); flex-wrap: wrap; }
+.fh-groupbox {
+    background: var(--fh-brand-light); border-radius: var(--fh-r-inner);
+    padding: 14px 24px; text-align: center; min-width: 120px;
+}
+.fh-groupbox-gray { background: var(--fh-sunken); }
+.fh-groupname { font-size: 13px; color: var(--fh-ink-2); margin-bottom: 6px; }
+.fh-groupnum { font-size: 20px; color: var(--fh-brand); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fh-groupbox-gray .fh-groupnum { color: var(--fh-ink-3); }
+
+/* 快捷入口 */
+.fh-quick { display: flex; gap: var(--fh-s3); flex-wrap: wrap; }
+.fh-quick a {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: var(--fh-r-pill);
+    background: var(--fh-brand-light); color: var(--fh-brand) !important;
+    text-decoration: none; font-size: 14px;
+}
+.fh-quick a:hover { background: #DCE6FF; text-decoration: none; }
+.fh-quick svg { width: 17px; height: 17px; }
+
+/* 分组管理：组的区块 */
+.fh-newgroup {
+    border: 1px dashed #B9CBE8; border-radius: var(--fh-r-inner);
+    padding: 18px 20px; margin-bottom: var(--fh-s5); background: #FBFCFE;
+}
+.fh-group { border: 1px solid var(--fh-hairline); border-radius: var(--fh-r-inner); padding: 18px 20px; margin-bottom: var(--fh-s4); }
+.fh-group-head { display: flex; align-items: baseline; gap: var(--fh-s4); flex-wrap: wrap; }
+.fh-group-head h3 { font-size: 18px; margin: 0; }
+.fh-count, .fh-leader { font-size: 13px; color: var(--fh-ink-3); }
+.fh-leader b { color: var(--fh-brand); }
+.fh-none { color: #C3CED4; }
+.fh-group-desc { font-size: 13px; color: var(--fh-ink-3); margin: 8px 0 14px; }
+
+/* 表格行内操作按钮 */
+.fh-ops { white-space: nowrap; }
+.fh-ops a, .fh-ops button {
+    font-size: 13px; margin-right: 10px; padding: 0;
+    color: var(--fh-brand); background: none; border: 0; cursor: pointer; text-decoration: none;
+    font-family: var(--fh-font);
+}
+.fh-ops a:hover, .fh-ops button:hover { text-decoration: underline; }
+.fh-danger { color: var(--fh-err-fg) !important; }
+.fh-coverthumb { width: 58px; height: 40px; object-fit: cover; border-radius: 8px; border: 1px solid var(--fh-hairline); display: block; }
+
+/* 危险区（账号管理） */
+.fh-danger-card { border-left: 4px solid var(--fh-err-fg); }
+
+/* ============================================================================
+ * Markdown 编辑器（2026-10-07 重排为 CSDN 风）
+ * ============================================================================
+ * 【本次改了什么】
+ *   ① 工具条：滚动时【贴顶】（sticky），右侧放实时字数
+ *   ② 编辑区 + 预览区：包成【一个整体框】+ 固定高度 → 两栏等高、各自独立滚动
+ *      （这是 CSDN 手感的核心；原来靠 textarea 的 rows 和预览的 max-height，两边高度不同步）
+ *   ③ 预览区：白底、无虚线边框（原来像"预览框"，现在像"最终文章"）
+ *
+ * ⚠️ 下面这些类【只有 admin/news-form.html 在用】（已全项目核查过）→ 改它不会牵连别的页面。
+ * ⚠️ 但 .fh-cover / .fh-coverimg 是【5 个页面共用】的
+ *    （admin/award-form、admin/news、admin/news-form、me/awards、news/detail），
+ *    所以新闻表单里"封面一行"是用新类 .fh-coverrow 在外面包一层，**绝不动 .fh-cover 本身**。
+ * ⚠️ .fh-toolbar 用了 sticky + z-index → 它会形成一个层叠上下文；
+ *    所以【千万不要把弹窗放进 .fh-toolbar 里面】（会重演之前登录弹窗被遮罩盖住的 bug）。
+ * ========================================================================== */
+.fh-toolbar {
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;
+    position: sticky; top: 64px; z-index: 2;      /* 64px = 导航栏高度；2 远低于导航栏的 1030 */
+    background: var(--fh-surface);
+    padding: 8px 0;
+}
+.fh-toolbar button {
+    min-width: 36px; padding: 5px 12px; border: 1px solid var(--fh-hairline);
+    background: var(--fh-surface); border-radius: var(--fh-r-pill);
+    font-size: 13px; font-family: var(--fh-font); cursor: pointer; color: var(--fh-ink-2);
+}
+.fh-toolbar button:hover { border-color: var(--fh-brand); color: var(--fh-brand); }
+.fh-mdhint { font-size: 12px; color: var(--fh-ink-3); margin-left: 6px; }
+/* 工具栏右侧的实时字数（margin-left:auto 把它推到最右边） */
+.fh-mdcount { margin-left: auto; font-size: 12px; color: var(--fh-ink-3); font-variant-numeric: tabular-nums; }
+
+/* 编辑器主体：一个框，左右各占一半，两栏等高 */
+.fh-mdwrap {
+    display: flex; gap: 0; align-items: stretch;
+    height: 560px;                                /* ⭐ 两栏等高就靠这个固定高度 */
+    border: 1px solid #CBD5E1; border-radius: var(--fh-r-input);
+    overflow: hidden; background: var(--fh-surface);
+}
+.fh-mdwrap textarea {
+    flex: 1 1 50%; min-width: 0; height: 100%;
+    padding: 14px 16px; border: 0; border-radius: 0; resize: none;
+    font-family: var(--fh-font-code); font-size: 13px; line-height: 1.7;
+    background: var(--fh-surface); color: var(--fh-ink);
+}
+.fh-mdwrap textarea:focus { outline: none; box-shadow: inset 0 0 0 1px var(--fh-brand); }
+.fh-preview {
+    flex: 1 1 50%; min-width: 0; height: 100%;
+    border: 0; border-left: 1px solid var(--fh-hairline); border-radius: 0;
+    padding: 16px 20px; background: #fff; overflow: auto;
+    font-size: 14px; line-height: 1.8;
+}
+.fh-preview :first-child { margin-top: 0; }
+
+/* 标题输入框：独占一行、大号（像 CSDN 的标题栏）
+   ⚠️【为什么写 `input.` 前缀而不是光写类名】特异性！
+      全站有 `input[type=text] { font-size:14px; border:1px solid #CBD5E1; border-radius:... }`
+      （第 293 行）——它的特异性是 (0,1,1)，比单个类名的 (0,1,0) **高**，
+      光写 `.fh-edittitle` 会被它整个压掉（字号变 14px、下边框变回全边框）。
+      写成 `input.fh-edittitle` 就是 (0,1,1)，**且本规则在它后面 → 后来者胜** ✅
+   ⚠️ 也**不要**叫 .fh-newstitle —— 那个名字已被别处占用（见上方 16px 那条）。 */
+input.fh-edittitle {
+    width: 100%; padding: 10px 2px; margin-bottom: var(--fh-s4);
+    border: 0; border-bottom: 1px solid var(--fh-hairline); border-radius: 0;
+    font-size: 22px; font-weight: 600; color: var(--fh-ink-title);
+    font-family: var(--fh-font); background: transparent;
+}
+input.fh-edittitle:focus { outline: none; border-bottom-color: var(--fh-brand); box-shadow: none; }
+input.fh-edittitle::placeholder { color: #A9B6BF; font-weight: 400; }
+
+/* 底部「保存」条 */
+.fh-savebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 18px 0 0; }
+
+/* 「封面图」一行：标签 + 上传控件并排（新类，只为不改共用的 .fh-cover） */
+.fh-coverrow { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: var(--fh-s4); }
+.fh-coverrow > label { padding-top: 4px; }
+/* 「仅登录可见」这种"勾选框 + 文字"的标签 */
+.fh-inlinecheck { display: inline-flex; align-items: center; gap: 6px; }
+/* 弹窗里的小字说明 */
+.fh-modalnote { font-size: 12px; color: var(--fh-ink-3); margin: 4px 0 0; }
+/* 弹窗底部按钮区（原来只定制了 header / body / title） */
+.fh-modal .modal-footer { border-top: 1px solid var(--fh-hairline); padding: 16px 24px; gap: 10px; }
+.fh-cover { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fh-coverimg { max-height: 74px; border-radius: var(--fh-r-input); border: 1px solid var(--fh-hairline); }
+
+/* ===================== 20. 个人页专用 ===================== */
+.fh-mehead { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+/* 头像：默认姓名首字文字头像（docs/08 §8）；P2 会做上传 */
+.fh-avatar {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--fh-brand-light); color: var(--fh-brand);
+    font-size: 24px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.fh-meinfo { flex: 1 1 auto; }
+.fh-menname { margin: 0 0 6px; font-size: 20px; font-weight: 600; color: var(--fh-ink-title); }
+.fh-memeta { margin: 0; font-size: 13px; color: var(--fh-ink-3); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.fh-mebtn {
+    padding: 8px 20px; border-radius: var(--fh-r-pill);
+    background: var(--fh-brand); color: #fff !important; text-decoration: none;
+    font-size: 13px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+}
+.fh-mebtn:hover { background: var(--fh-brand-dark); text-decoration: none; }
+.fh-mebtn svg { width: 15px; height: 15px; }
+
+.fh-funcs { display: flex; flex-direction: column; }
+.fh-func {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 6px; border-bottom: 1px solid var(--fh-hairline);
+    text-decoration: none; color: inherit;
+}
+.fh-func:last-child { border-bottom: 0; }
+.fh-func:hover { background: var(--fh-wash); text-decoration: none; }
+.fh-func-icon {
+    width: 38px; height: 38px; border-radius: var(--fh-r-input); flex: 0 0 auto;
+    background: var(--fh-brand-light); color: var(--fh-brand);
+    display: flex; align-items: center; justify-content: center;
+}
+.fh-func-icon svg { width: 18px; height: 18px; }
+.fh-func-text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.fh-func-text b { font-size: 15px; color: var(--fh-ink-title); font-weight: 500; }
+.fh-func-text small { font-size: 12px; color: var(--fh-ink-3); }
+.fh-func-arrow { color: #C3CED4; font-size: 18px; }
+
+/* 我的小组：组员名单 */
+.fh-members { margin: 0; padding-left: 20px; }
+.fh-members li { font-size: 15px; line-height: 2; color: var(--fh-ink); }
+
+/* 学习页（空栏占位：期待感，不是"空"） */
+.fh-soon { text-align: center; padding: 56px 24px; }
+.fh-soon-icon {
+    width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
+    background: var(--fh-brand-light); color: var(--fh-brand);
+    display: flex; align-items: center; justify-content: center;
+}
+.fh-soon-icon svg { width: 30px; height: 30px; }
+.fh-soon h2 { font-size: 22px; margin: 0 0 14px; }
+.fh-soon p { font-size: 14px; color: var(--fh-ink-2); line-height: 1.9; margin: 0 0 10px; }
+
+/* —— T-030（2026-10-04）：学习页按设计稿 #19 补成"三卡版" ——
+   ⚠️ 这里只【追加】新类，上面 .fh-soon / .fh-soon-icon / .fh-soon h2 / .fh-soon p 一条都没改。
+   ⚠️ 下面凡是以 <p> 承载的类，选择器都写成 `.fh-soon .fh-soon-xxx` 两层 ——
+      因为 `.fh-soon p` 的优先级是 (0,1,1)，单靠一个类 (0,1,0) 压不过它，
+      字号和 margin 会被它吃掉（写 CSS 时的经典静默失效）。 */
+.fh-soon-star { width: 64px; height: 64px; margin: 0 auto 10px; color: var(--fh-brand); }
+.fh-soon-star svg { width: 64px; height: 64px; }
+/* 仪式金短线：本页金用量第 1 处（docs/08：金只做点缀、每页 ≤ 3 处、不做按钮） */
+.fh-soon-goldline {
+    width: 44px; height: 3px; margin: 0 auto 22px;
+    background: var(--fh-gold); border-radius: var(--fh-r-pill);
+}
+.fh-soon-title { font-size: 40px; font-weight: 600; line-height: 1.2; margin: 0 0 12px; color: var(--fh-ink-title); }
+.fh-soon .fh-soon-sub  { font-size: 15px; color: var(--fh-ink-2); margin: 0 0 8px; }
+.fh-soon .fh-soon-lead { font-size: 14px; color: var(--fh-ink-3); margin: 0 0 4px; }
+/* 三卡横排；窗口拖窄时自动换行（本期不做移动端适配，但不能错位） */
+.fh-soon-cards {
+    display: flex; gap: var(--fh-s4); justify-content: center;
+    max-width: 760px; margin: 26px auto 16px; flex-wrap: wrap;
+}
+.fh-soon-card {
+    flex: 1 1 0; min-width: 190px; padding: 18px 14px;
+    background: var(--fh-surface); border: 1px solid var(--fh-hairline);
+    border-radius: var(--fh-r-inner); box-shadow: var(--fh-sh-1);
+}
+.fh-soon-card-icon {
+    display: flex; align-items: center; justify-content: center;
+    height: 20px; margin-bottom: 10px; color: var(--fh-brand);
+}
+.fh-soon-card-icon svg { width: 20px; height: 20px; }
+.fh-soon-card h3 { font-size: 15px; font-weight: 500; margin: 0 0 6px; color: var(--fh-ink-title); }
+.fh-soon-card p { font-size: 12px; color: var(--fh-ink-3); margin: 0; }
+.fh-soon-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--fh-brand); }
+/* 社团金句：本页金用量第 2 处（全页共 2 处，不超限） */
+.fh-soon .fh-soon-slogan { font-size: 13px; color: var(--fh-gold-fg); margin: 0 0 22px; }
+
+/* ===================== 21. 状态页（403 / 404 / 500） ===================== */
+.fh-bigcode {
+    font-size: 68px; font-weight: 600; line-height: 1;
+    letter-spacing: 2px; margin-bottom: 16px; font-variant-numeric: tabular-nums;
+}
+.fh-code-403 { color: var(--fh-err-fg); }
+.fh-code-404 { color: var(--fh-brand); }
+.fh-code-500 { color: var(--fh-warn-fg); }
+
+/* ===================== 22. 页脚 ===================== */
+.fh-footer {
+    border-top: 1px solid var(--fh-hairline);
+    background: var(--fh-surface);
+    margin-top: var(--fh-s10);
+    padding: 26px var(--fh-s6);
+}
+.fh-footer-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--fh-s4); flex-wrap: wrap;
+    font-size: 13px; color: var(--fh-ink-3);
+}
+.fh-footer-slogan { color: var(--fh-gold-fg); }
+
+/* ===================== 23. 工具类 ===================== */
+.fh-mb0 { margin-bottom: 0 !important; }
+.fh-mt3 { margin-top: var(--fh-s3) !important; }
+.fh-nowrap { white-space: nowrap; }
+.fh-text-c { text-align: center; }
+.fh-small { font-size: 13px; }
+.fh-flex { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fh-between { display: flex; align-items: center; justify-content: space-between; gap: var(--fh-s4); flex-wrap: wrap; }
+.fh-grow { flex: 1 1 auto; }
+.fh-w-num { width: 90px; }
+
+/* 小屏（本期不做移动端适配，只保证窗口拖窄时不至于错位） */
+@media (max-width: 900px) {
+    .fh-page { padding: var(--fh-s4); }
+    .fh-hero { padding: 32px 24px; }
+    .fh-hero h1 { font-size: 32px; }
+    .fh-hero-deco { display: none; }
+    /* 窄屏：编辑器改上下排列（左编辑 / 右预览 → 上编辑 / 下预览） */
+    .fh-mdwrap { flex-direction: column; height: 640px; }
+    .fh-preview { border-left: 0; border-top: 1px solid var(--fh-hairline); }
+    input.fh-edittitle { font-size: 18px; }
+    .fh-card { padding: 20px; }
+}
+
+
+/* ============================================================================
+ * 首页焦点图轮播（T-041）
+ * ============================================================================
+ * 【尺寸约定】轮播宽 = 容器宽（1200px），高 400px ≈ 设计稿建议的 1200×400。
+ *   ⭐ 需求方要求：下面两栏里【窄的那栏 = 轮播宽的 1/3】。
+ *      所以两栏是 1 : 2 的网格（400px : 800px）。
+ *      要改比例只改 --fh-col-split 这一个数字。
+ * ========================================================================== */
+:root {
+    --fh-col-split: 5fr 7fr;    /* 左右两栏（社团简介 : 最新新闻）= 5:7，与改版前一致 */
+    --fh-hero-h: 133px;          /* ⭐ 需求方要求：Hero 高度 = 轮播高（400）的 1/3 */
+}
+
+.fh-slide {
+    position: relative;
+    border-radius: var(--fh-r-hero);
+    overflow: hidden;
+    height: 400px;
+    margin-bottom: var(--fh-s5);
+    background: #F1F5F9;
+}
+
+/* 每一张：默认叠在一起，只有 .is-on 的那张可见（无 JS 时第一张也 is-on，所以不白屏） */
+.fh-slide-item {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .45s ease;
+    text-decoration: none;
+    display: block;
+}
+.fh-slide-item.is-on { opacity: 1; visibility: visible; }
+
+.fh-slide-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 没封面图时的占位（设计稿：浅灰底 + 山形线稿 + 提示文字，不是破图） */
+.fh-slide-ph {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #F3F6F9 0%, #E8EEF4 100%);
+    color: #A8B6BF;
+}
+.fh-slide-ph .fh-slide-ph-icon { font-size: 46px; line-height: 1; opacity: .7; }
+.fh-slide-ph .fh-slide-ph-t1 { font-size: 15px; color: #8397A3; }
+.fh-slide-ph .fh-slide-ph-t2 { font-size: 12px; color: #AEBBC4; }
+
+/* 底部渐变遮罩，保证白字在任何图上都能看清 */
+.fh-slide-cap {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 90px 40px 34px;
+    background: linear-gradient(to top, rgba(6,16,32,.82) 0%, rgba(6,16,32,.45) 45%, rgba(6,16,32,0) 100%);
+    color: #fff;
+}
+.fh-slide-title { font-size: 26px; font-weight: 600; margin: 0 0 10px; line-height: 1.35; }
+.fh-slide-meta { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #D7E3FF; }
+.fh-slide-tag {
+    background: var(--fh-brand); color: #fff;
+    padding: 2px 12px; border-radius: var(--fh-r-pill); font-size: 12px;
+}
+
+/* 左右箭头：半透明圆形 */
+.fh-slide-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border: 0; border-radius: 50%;
+    background: rgba(255,255,255,.78); color: #1F2D3D;
+    font-size: 22px; line-height: 1; cursor: pointer; z-index: 3;
+    display: flex; align-items: center; justify-content: center;
+}
+.fh-slide-arrow:hover { background: #fff; }
+.fh-slide-arrow[data-prev] { left: 18px; }
+.fh-slide-arrow[data-next] { right: 18px; }
+
+/* 底部圆点：当前那个实心且变宽 */
+.fh-slide-dots {
+    position: absolute; left: 0; right: 0; bottom: 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px; z-index: 3;
+}
+.fh-slide-dots span {
+    width: 8px; height: 8px; border-radius: var(--fh-r-pill);
+    background: rgba(255,255,255,.55); cursor: pointer; transition: all .25s;
+}
+.fh-slide-dots span.is-on { width: 24px; background: #fff; }
+
+/* 默认横幅（一条新闻都没有时，不留空白） */
+.fh-slide-default {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(120deg, var(--fh-ice) 0%, var(--fh-brand-light) 60%, #F7FAFF 100%);
+}
+.fh-slide-default h2 { margin: 0; font-size: 36px; letter-spacing: -1px; color: var(--fh-ink); }
+.fh-slide-default p { margin: 0; font-size: 15px; color: var(--fh-brand); }
+
+/* ===== 两栏：窄栏 = 轮播宽的 1/3（400px）===== */
+.fh-2col { display: grid; grid-template-columns: var(--fh-col-split); gap: var(--fh-s5); align-items: start; }
+@media (max-width: 1000px) { .fh-2col { grid-template-columns: 1fr; } }
+
+/* ===== 封面裁剪（T-041 配套）===== */
+.fh-cropmask {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(8, 18, 30, .72);
+    display: none; align-items: center; justify-content: center;
+}
+.fh-cropmask[style*="flex"] { display: flex; }
+.fh-cropbox {
+    background: #fff; border-radius: 20px; padding: 24px;
+    width: min(820px, 92vw); box-shadow: 0 24px 60px rgba(0,0,0,.35);
+}
+.fh-crop-title { margin: 0 0 14px; font-size: 17px; font-weight: 600; color: #1F2D3D; }
+.fh-crop-title span { font-weight: 400; font-size: 13px; color: #8397A3; margin-left: 10px; }
+.fh-cropstage {
+    width: 100%; aspect-ratio: 3 / 1; overflow: hidden;
+    border-radius: 14px; cursor: grab; background: #F1F5F9;
+    display: flex; align-items: center; justify-content: center;
+}
+.fh-cropstage:active { cursor: grabbing; }
+.fh-cropstage canvas { width: 100%; height: 100%; display: block; cursor: grab; }
+.fh-cropctl { display: flex; align-items: center; gap: 12px; margin: 16px 0 4px; font-size: 13px; color: #5A6B75; }
+.fh-cropctl input[type=range] { flex: 0 0 240px; }
+.fh-cropbtns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+/* ===== （2026-10-04 已删除）首页自定义背景图 + Hero 遮罩 =====
+ * 上一版把背景图配在【Hero】上：
+ *     .fh-hero[style*="background-image"] { … }
+ *     .fh-heromask { position:absolute; inset:0; z-index:1; background:rgba(255,255,255,.4); }
+ * 两个问题：① 与需求方口径不符 —— 原话是「是整个首页的背景图，**不是 Hero 的**」；
+ *           ② 当时首页并未接线（模板没用它），属**死代码**，留着会让下一个人以为 Hero 还能配图。
+ * 现已改为「**整页背景**」——见文件末尾的 `.fh-homewrap` 一节（T-042）。 */
+
+/* ===================== 25. 首页整页背景图（T-042，2026-10-04 接线） =====================
+ * 【做什么】把 `site_settings.home_background` 那张图铺在【整个首页】上
+ *   （导航以下 → 内容结束），并叠一层白色半透明遮罩保证文字可读。
+ *
+ * 【为什么用「同一个元素的两层 background」而不是加一个遮罩 div】
+ *   遮罩用 linear-gradient（纯色渐变，不额外请求图片），和背景图叠在**同一层**：
+ *     · 不需要额外 DOM；
+ *     · **不存在 z-index 层级问题** —— 背景永远在内容下面，白卡片内容天然不受影响
+ *       （上一版把遮罩做成绝对定位的 .fh-heromask，就是层级 + 作用域都不对，已删）。
+ *
+ * 【为什么固定（fixed）】滚动时背景不动，整页观感更稳；P1 只验收桌面视口，没有移动端兼容负担。
+ *
+ * ⚠️ 【默认状态零影响】没配背景图时，模板**不会**加 `.fh-on`、也不会有 `--fh-home-img`
+ *    → 本节所有规则都不生效，首页与改动前**像素级一致**。
+ */
+.fh-homewrap { background-repeat: no-repeat; }
+.fh-homewrap.fh-on {
+    background-image: linear-gradient(rgba(255, 255, 255, .4), rgba(255, 255, 255, .4)), var(--fh-home-img);
+    background-size: cover, cover;
+    background-position: center top, center top;
+    background-attachment: fixed, fixed;
+}
+
+/* ===================== 24. 获奖展示（T-033） =====================
+ * 只【追加】新类，不动上面任何一条已有规则。
+ * ⚠️ 金色（--fh-gold）在本区块只出现在「奖项」徽章那一处语义上：
+ *    docs/08 §3 把「获奖成就（金色）」列进标签集合，但同一节写了"每页 ≤ 3 处" ——
+ *    一个列出很多奖的页面必然超过，所以这里【不再加金线/金边】，把金色用量压到最低。
+ * ⚠️ 绿色在本区块一律不用：docs/08 §3.3 规定"绿色只允许出现在学习热力图与它的图例里"。
+ *    🔄 2026-10-04：学习热力图已撤掉，所以现在**全站都不再使用绿色**（除了签到状态那句 fh-ok）。
+ */
+.fh-awardcard { height: 100%; }
+.fh-awardcard h3 { font-size: 16px; font-weight: 500; margin: 10px 0 6px; color: var(--fh-ink-title); }
+.fh-awardcard-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; }
+/* 获奖人：药丸小标签（和全站"无直角"一致） */
+.fh-awardname {
+    display: inline-block; margin: 2px 6px 2px 0; padding: 2px 10px;
+    background: var(--fh-brand-light); color: var(--fh-brand);
+    border-radius: var(--fh-r-pill); font-size: 13px;
+}
+/* 首页「获奖公示」：一行一条（比卡片更省纵向空间） */
+.fh-awardline {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 10px 0; border-bottom: 1px solid var(--fh-hairline);
+}
+.fh-awardline:last-child { border-bottom: 0; padding-bottom: 0; }
+.fh-awardline-title { font-size: 15px; color: var(--fh-ink-title); }
+.fh-awardline-names { font-size: 13px; color: var(--fh-ink-3); margin-left: auto; }

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  对外公开的新闻列表（T-026；T-043 视觉落地）
+  🔒 只显示【已发布】的；「仅登录可见」的只有登录用户能看到。
+     草稿与 isInternal 对游客一律 404（不暴露"存在"）—— 规则在 PublicNewsController 里。
+-->
+<head th:replace="~{fragments/layout :: head('新闻公告')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">新闻公告</h1>
+
+    <!-- 分类筛选：药丸，选中 = 品牌蓝实底 -->
+    <div class="fh-filters">
+        <a th:href="@{/news}" th:classappend="${currentCategory == ''} ? 'fh-on'">全部</a>
+        <a th:each="c : ${categories}" th:href="@{/news(category=${c.name()})}"
+           th:classappend="${currentCategory == c.name()} ? 'fh-on'" th:text="${c.label}">通知</a>
+    </div>
+
+    <!-- 空状态（D 类 · 无结果）：给出"看全部"的出路 -->
+    <div class="fh-card" th:if="${total == 0}">
+        <div class="fh-empty">
+            <svg th:replace="~{fragments/icons :: ic-inbox}"></svg>
+            <div class="fh-empty-title">这个分类下还没有已发布的新闻</div>
+            <div><a th:href="@{/news}">看看全部新闻</a></div>
+        </div>
+    </div>
+
+    <!-- 新闻卡片 -->
+    <a class="fh-newscard" th:each="n : ${newsList}" th:href="@{/news/{id}(id=${n.id})}">
+        <img class="fh-thumb" th:if="${n.coverImage != null}" th:src="${n.coverImage}" alt="封面">
+        <div class="fh-thumb fh-thumb-empty" th:if="${n.coverImage == null}">无图</div>
+        <div class="fh-newsbody">
+            <p class="fh-newstitle">
+                <span th:if="${n.isTop}" class="fh-top">置顶</span>
+                <span th:if="${n.isInternal}" class="fh-internal">仅登录可见</span>
+                <span th:text="${n.title}">标题</span>
+            </p>
+            <p class="fh-newsmeta">
+                <span class="fh-cat" th:text="${n.category.label}">通知</span>
+                <span class="mono" th:text="${#temporals.format(n.publishedAt, 'yyyy-MM-dd')}">2026-10-02</span>
+            </p>
+        </div>
+    </a>
+
+    <!-- 分页（链接保留当前的分类筛选条件） -->
+    <div class="fh-pager" th:if="${totalPages > 1}">
+        <a th:if="${page > 0}" th:href="@{/news(page=${page - 1}, category=${currentCategory})}">‹ 上一页</a>
+        <span class="fh-off" th:unless="${page > 0}">‹ 上一页</span>
+        <span th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+            <a th:href="@{/news(page=${i}, category=${currentCategory})}"
+               th:classappend="${i == page} ? 'fh-on'" th:text="${i + 1}">1</a>
+        </span>
+        <a th:if="${page < totalPages - 1}" th:href="@{/news(page=${page + 1}, category=${currentCategory})}">下一页 ›</a>
+        <span class="fh-off" th:unless="${page < totalPages - 1}">下一页 ›</span>
+        <span class="fh-hint">共 <span th:text="${total}">0</span> 条</span>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

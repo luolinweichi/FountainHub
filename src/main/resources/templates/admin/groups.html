@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<!--
+  分组管理（T-016；T-043 视觉落地；2026-10-04 加了「添加组员」与「删除组」）
+
+  ⭐ 组长是【派生身份】（方案 B）：指定后他下次登录自动获得「组长」权限，
+     **不需要改他的主角色** —— 零数据库改动，从 study_groups.leader_user_id 派生。
+  🔒 下拉框里【只显示姓名，绝不显示手机号】（docs/spec.md §3.3 红线）。
+
+  🔄 2026-10-04 新增两块（项目负责人要求）：
+     ① 「加组员」—— 以前"设置人在哪个组"只能去学员详情页，动线绕；
+        现在社长的自然动线（建组 → 往里面加人）在这页就能走完。
+        ⚠️ 一个人只能在一个组（users.group_id 是单值列）→ 加入本组 = 从原组移出，
+           所以下拉框里要显示"他现在在哪个组"，下面也有一行小字说明。
+     ② 「删除这个组」—— 组员会自动变成「未分组」（外键 ON DELETE SET NULL）。
+-->
+<head th:replace="~{fragments/layout :: head('分组管理')}"></head>
+<body>
+
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+
+<div class="fh-page">
+    <div class="fh-card">
+
+        <h1 class="fh-title">分组管理</h1>
+        <p class="fh-sub">
+            共 <b th:text="${#lists.size(groups)}">0</b> 个小组
+            <span class="fh-sep">|</span>
+            组长是<b>派生身份</b> —— 指定后他下次登录会自动获得「组长」权限，<b>不需要改他的主角色</b>
+        </p>
+
+        <!-- 提示：A 成功 / B 失败（由 RedirectAttributes 的 flash 传过来） -->
+        <div class="fh-alert fh-alert-ok" th:if="${saved}">
+            <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+            <span th:text="${saved}">已保存</span>
+        </div>
+        <div class="fh-alert fh-alert-err" th:if="${error}">
+            <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+            <span th:text="${error}">出错了</span>
+        </div>
+
+        <!-- ============ 新建组（只有指导老师 + 正社长看得到）============ -->
+        <div sec:authorize="hasAnyRole('TEACHER','PRESIDENT')" class="fh-newgroup">
+            <p class="fh-sec-title">新建小组</p>
+            <form th:action="@{/admin/groups}" method="post" class="fh-formrow">
+                <input type="text" name="name" placeholder="组名，如 竞赛组" required>
+                <input type="text" name="description" placeholder="说明（可空）">
+                <input type="number" name="sortOrder" placeholder="排序" value="0" class="fh-w-num">
+                <button type="submit" class="fh-btn fh-btn-main">新建</button>
+            </form>
+        </div>
+
+        <!-- ============ 组列表：一个组一张卡片 ============ -->
+        <!-- 空状态（D 类 · 无数据） -->
+        <div class="fh-empty" th:if="${#lists.isEmpty(groups)}">
+            <svg th:replace="~{fragments/icons :: ic-folder}"></svg>
+            <div class="fh-empty-title">还没有任何小组</div>
+            <div>在上面新建一个吧。</div>
+        </div>
+
+        <div th:each="g : ${groups}" class="fh-group">
+
+            <div class="fh-group-head">
+                <h3 th:text="${g.name}">示例组</h3>
+                <span class="fh-count">
+                    组员 <b th:text="${memberCounts[g.id]} ?: 0">0</b> 人
+                </span>
+                <span class="fh-leader">
+                    组长：
+                    <!-- ⚠️ 这里能直接 g.leader.realName —— 因为 StudyGroup.leader 是 EAGER 抓取（见实体注释） -->
+                    <b th:if="${g.leader != null}" th:text="${g.leader.realName}">张三</b>
+                    <span th:if="${g.leader == null}" class="fh-none">暂无</span>
+                </span>
+            </div>
+
+            <p class="fh-group-desc" th:text="${g.description} ?: '（没有说明）'">说明</p>
+
+            <!-- ---- 编辑组名 / 说明 / 排序（副社长看不到这一块）---- -->
+            <form sec:authorize="hasAnyRole('TEACHER','PRESIDENT')"
+                  th:action="@{/admin/groups/{gid}(gid=${g.id})}" method="post" class="fh-formrow">
+                <label>组名</label>
+                <input type="text" name="name" th:value="${g.name}" required>
+                <label>说明</label>
+                <input type="text" name="description" th:value="${g.description}">
+                <label>排序</label>
+                <input type="number" name="sortOrder" th:value="${g.sortOrder}" class="fh-w-num">
+                <button type="submit" class="fh-btn fh-btn-outline fh-btn-sm">保存</button>
+            </form>
+
+            <!-- ---- 指定组长（副社长看不到这一块）---- -->
+            <form sec:authorize="hasAnyRole('TEACHER','PRESIDENT')"
+                  th:action="@{/admin/groups/{gid}/leader(gid=${g.id})}" method="post" class="fh-formrow">
+                <label>组长</label>
+                <select name="leaderUserId">
+                    <option value="">（不设组长）</option>
+                    <!--
+                        🔒 下拉框里【只显示姓名，绝不显示手机号】—— docs/spec.md 第 3.3 节红线
+                    -->
+                    <option th:each="u : ${allUsers}"
+                            th:value="${u.id}"
+                            th:text="${u.realName} + '（' + ${u.role.label} + '）'"
+                            th:selected="${g.leader != null and g.leader.id == u.id}">张三（学员）</option>
+                </select>
+                <button type="submit" class="fh-btn fh-btn-outline fh-btn-sm">指定</button>
+                <span class="fh-hint">选「不设组长」并提交 = 取消组长</span>
+            </form>
+
+            <!-- ---- 加组员（2026-10-04 新增；副社长看不到这一块）----
+                 下拉里只列**学员**（把老师/社长塞进学习小组没有意义），
+                 并在括号里显示他**当前在哪个组** —— 因为加入本组会把他从原组移出去。 -->
+            <form sec:authorize="hasAnyRole('TEACHER','PRESIDENT')"
+                  th:action="@{/admin/groups/{gid}/member(gid=${g.id})}" method="post" class="fh-formrow">
+                <label>加组员</label>
+                <select name="userId">
+                    <option value="">（选一名学员）</option>
+                    <!-- ⚠️ 整段必须写在【一个】 ${...} 里 —— 三元运算符 $ 外面的部分会被当纯文本原样输出 -->
+                    <option th:each="u : ${memberCandidates}"
+                            th:value="${u.id}"
+                            th:text="${u.realName + (u.groupId == null ? '（未分组）' : '（' + groupNames[u.groupId] + '）')}">张三（未分组）</option>
+                </select>
+                <button type="submit" class="fh-btn fh-btn-outline fh-btn-sm">加入本组</button>
+            </form>
+            <p class="fh-hint" style="margin:-6px 0 10px"
+               sec:authorize="hasAnyRole('TEACHER','PRESIDENT')">
+                ⚠️ 一名学员只能属于一个小组 —— 他若已经在别的组，加入本组后就会从原组移出。
+            </p>
+
+            <!-- ---- 删除这个组（2026-10-04 新增；副社长看不到这一块）----
+                 ⚠️ 二次确认用浏览器原生 confirm() —— 与「删除新闻」用的是**同一个模式**
+                    （见 admin/news.html），不另发明一套交互。
+                 🔒 删组**不会丢人**：users.group_id 的外键是 ON DELETE SET NULL，
+                    组员会自动变成「未分组」（所以提示里要写清楚这一点，免得社长不敢删）。 -->
+            <form sec:authorize="hasAnyRole('TEACHER','PRESIDENT')"
+                  th:action="@{/admin/groups/{gid}/delete(gid=${g.id})}" method="post"
+                  onsubmit="return confirm('确定删除这个小组吗？该组的组员会变成「未分组」，删了就找不回来了。');">
+                <button type="submit" class="fh-danger fh-btn-sm">删除这个组</button>
+            </form>
+        </div>
+
+        <p class="fh-sub fh-flex" style="margin:18px 0 0">
+            <svg style="width:16px;height:16px;color:var(--fh-ink-3)"
+                 th:replace="~{fragments/icons :: ic-lock}"></svg>
+            <span><b>副社长</b>可以看这个页面，但不能新建组 / 改组 / 指定组长 / 加组员 / 删除组
+                （会和"改角色"一样返回 403）。</span>
+        </p>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

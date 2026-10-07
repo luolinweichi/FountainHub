@@ -1,0 +1,79 @@
+# =====================================================================
+# FountainHub 配置文件
+# =====================================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: fountainhub
+
+  # 本地私有配置（数据库密码等）放在 application-local.yml
+  # 该文件已被 .gitignore 忽略，永远不会提交到 Git
+  profiles:
+    # 🔄 R-002：拆成两段
+    #   local = 本机私有配置（数据库密码，见 application-local.yml，不提交）
+    #   dev   = 开发期专用设置（打印 SQL、debug 日志，见 application-dev.yml）
+    # 部署时改用：--spring.profiles.active=local,prod（就不会打印 SQL 了）
+    active: local,dev
+
+  # 模板改完立刻生效，不用重启
+  thymeleaf:
+    cache: false
+
+  # ---------------------------------------------------------------
+  # 图片上传（T-025）
+  #   ① 大小上限：防止有人传个 500MB 把磁盘塞满；
+  #   ② static-locations：让浏览器能通过 /uploads/xxx.png 直接看到图。
+  #      ⚠️ 上传目录必须放在项目目录里 —— 开发沙箱只允许写 D:\Project\FountainHub。
+  #      目录本身配在文件底部的 fountainhub.upload.dir。
+  # ---------------------------------------------------------------
+  servlet:
+    multipart:
+      max-file-size: 5MB          # 单个文件最大 5MB
+      max-request-size: 10MB      # 整个请求最大 10MB
+
+  web:
+    resources:
+      static-locations: classpath:/static/,file:./uploads/
+
+  # ---------------------------------------------------------------
+  # 数据库配置（2026-10-02 里程碑 2 启用）
+  # ---------------------------------------------------------------
+  datasource:
+    # JDBC URL 就是「数据库的地址」。拆开看：
+    #   jdbc:mysql://          用 JDBC 协议连 MySQL
+    #   localhost:3306         数据库在哪台机器、哪个端口
+    #   /fountainhub           连哪个库
+    #   ? 后面的参数：
+    #     useUnicode + characterEncoding=utf8 → 中文不乱码
+    #     serverTimezone=Asia/Shanghai        → 时区对，否则时间会差 8 小时
+    url: jdbc:mysql://localhost:3306/fountainhub?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # validate = 启动时只核对「Java 实体类和数据库表对不对得上」，绝不改表结构。
+      # 表是我们用 01-schema.sql 亲手建的，绝不能让 Hibernate 自动改（update/create 很危险）
+      ddl-auto: validate
+    # 🔄 R-012：关闭 Open-Session-In-View
+    #    默认是开的 —— 数据库连接会一直占着，直到页面渲染完才释放。
+    #    关掉的好处：更早暴露"懒加载"问题、少占连接。
+    #    本项目实体之间没有懒加载关联（关联字段都是裸 ID），所以关掉是安全的。
+    open-in-view: false
+    # 🔄 R-002：show-sql 已挪到 application-dev.yml（开发期照常打印 SQL，体验不变）
+    properties:
+      hibernate:
+        format_sql: true
+
+# 上传目录（相对项目根目录）。改成绝对路径也行，例如 file:D:/FountainHub-uploads/
+fountainhub:
+  upload:
+    dir: ./uploads/
+
+# 日志级别（公共部分）
+# 🔄 R-002：com.fountainhub 的 debug 级别已挪到 application-dev.yml
+logging:
+  level:
+    root: info

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!-- 后台新闻管理（T-024；T-043 视觉落地）
+     ⚠️ 这里能看到草稿 —— 但【公开页一律看不到】（见 T-026 的 404 规则）。 -->
+<head th:replace="~{fragments/layout :: head('新闻管理')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <h1 class="fh-title">新闻管理</h1>
+
+    <!-- 提示：A 成功 / B 失败 -->
+    <div class="fh-alert fh-alert-ok" th:if="${saved}">
+        <svg th:replace="~{fragments/icons :: ic-check-circle}"></svg>
+        <span th:text="${saved}">ok</span>
+    </div>
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <div class="fh-card">
+        <p class="fh-sec-title">
+            全部新闻（含草稿）
+            <a class="fh-btn fh-btn-main fh-btn-sm" style="margin-left:auto" th:href="@{/admin/news/new}">
+                <svg style="width:15px;height:15px" th:replace="~{fragments/icons :: ic-plus}"></svg>新建
+            </a>
+        </p>
+
+        <!-- 空状态（D 类 · 无数据） -->
+        <div class="fh-empty" th:if="${#lists.isEmpty(newsList)}">
+            <svg th:replace="~{fragments/icons :: ic-news}"></svg>
+            <div class="fh-empty-title">还没有新闻</div>
+            <div>点右上角「新建」写第一条。</div>
+        </div>
+
+        <table class="fh-table" th:unless="${#lists.isEmpty(newsList)}">
+            <thead><tr><th style="width:80px">封面</th><th>标题</th><th>分类</th><th>状态</th><th>作者 ID</th><th>更新时间</th><th>操作</th></tr></thead>
+            <tbody>
+            <tr th:each="n : ${newsList}">
+                <td>
+                    <img class="fh-coverthumb" th:if="${n.coverImage != null}" th:src="${n.coverImage}" alt="封面">
+                    <span th:if="${n.coverImage == null}" class="fh-hint">—</span>
+                </td>
+                <td>
+                    <span th:if="${n.isTop}" class="fh-top">置顶</span>
+                    <span th:if="${n.isInternal}" class="fh-internal">仅登录</span>
+                    <b th:text="${n.title}">标题</b>
+                </td>
+                <td th:text="${n.category.label}">通知</td>
+                <td>
+                    <span class="tag active" th:if="${n.status.name() == 'PUBLISHED'}">已发布</span>
+                    <span class="tag pending" th:if="${n.status.name() == 'DRAFT'}">草稿</span>
+                </td>
+                <!-- ⚠️ news 表只有 author_id，拿不到姓名 —— 所以这里就显示 ID（不编造人名） -->
+                <td class="mono" th:text="${n.authorId}">1</td>
+                <td class="mono" th:text="${n.updatedAt}">2026-10-03</td>
+                <td class="fh-ops">
+                    <a th:href="@{/admin/news/{id}/edit(id=${n.id})}">编辑</a>
+                    <form th:action="@{/admin/news/{id}/publish(id=${n.id})}" method="post" style="display:inline">
+                        <button type="submit" th:text="${n.status.name() == 'PUBLISHED'} ? '退回草稿' : '发布'">发布</button>
+                    </form>
+                    <form th:action="@{/admin/news/{id}/top(id=${n.id})}" method="post" style="display:inline">
+                        <button type="submit" th:text="${n.isTop} ? '取消置顶' : '置顶'">置顶</button>
+                    </form>
+                    <form th:action="@{/admin/news/{id}/delete(id=${n.id})}" method="post" style="display:inline"
+                          onsubmit="return confirm('确定删除这条新闻吗？删了就找不回来了。');">
+                        <button type="submit" class="fh-danger">删除</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

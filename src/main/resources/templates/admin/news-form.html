@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<!--
+  新建 / 编辑新闻（T-024 / T-025；T-043 视觉落地；2026-10-07 编辑器版面重排）
+
+  【本次改了什么（只动 UI，字段与后端一行未改）】
+    ① 版面改成 CSDN 风：标题独占一行 → 工具栏（滚动时贴顶）→ 左编辑 / 右实时预览（两栏等高、各自滚动）
+    ② 「分类 / 仅登录可见 / 封面图」三个字段**搬进「发布文章」弹窗**，点「保存」先弹窗再提交
+    ③ 工具栏右侧加实时字数
+
+  ⚠️⚠️【两条硬约束，别破坏】
+    1. 三个字段**只能存在一份**（就在弹窗里）。
+       如果哪天又在表单主体里写一份分类下拉框、或"仅登录可见"勾选框，
+       提交时同名字段会出现两次，Spring 的 @RequestParam 取哪一个是不确定的 → 会出现"改了没生效"这类诡异 bug。
+       弹窗虽然默认 display:none，但里面的表单控件**照样随表单提交**，所以搬进来是安全的。
+    2. 「保存」按钮**必须保持 type="submit"**。
+       它靠 JS 拦截 submit 事件来"先弹窗"，但如果 JS/CDN 完全失效，
+       type="submit" 能让表单**照样提交**（真正的兜底）；
+       若改成 type="button"，JS 一挂就彻底存不了。
+-->
+<head th:replace="~{fragments/layout :: head('编辑新闻')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: nav}"></nav>
+<div class="fh-page">
+    <p class="fh-sub"><a th:href="@{/admin/news}">← 返回新闻管理</a></p>
+    <h1 class="fh-title" th:text="${isNew} ? '新建新闻' : '编辑新闻'">新建新闻</h1>
+
+    <!-- 提示：B 失败（本页没有成功提示 —— 保存成功会跳回列表页） -->
+    <div class="fh-alert fh-alert-err" th:if="${error}">
+        <svg th:replace="~{fragments/icons :: ic-warn}"></svg>
+        <span th:text="${error}">err</span>
+    </div>
+
+    <form id="newsForm" class="fh-card"
+          th:action="${isNew} ? @{/admin/news/new} : @{/admin/news/{id}/edit(id=${news.id})}" method="post">
+
+        <!-- ============ ① 标题：独占一行、大号，像 CSDN 的标题栏 ============ -->
+        <input id="newsTitle" class="fh-edittitle" type="text" name="title" th:value="${news.title}"
+               maxlength="200" required placeholder="请输入标题（必填）" aria-label="标题">
+
+        <!-- ============ ② Markdown 工具栏（滚动时贴顶） ============ -->
+        <div class="fh-toolbar" data-md-toolbar>
+            <button type="button" data-md="**|**|粗体">B</button>
+            <button type="button" data-md="# |  |标题">H1</button>
+            <button type="button" data-md="## |  |标题">H2</button>
+            <button type="button" data-md="- |  |列表项">列表</button>
+            <button type="button" data-md="1. |  |列表项">有序</button>
+            <button type="button" data-md="[|](https://)|链接文字">链接</button>
+            <button type="button" id="mdInsertImg">图片</button>
+            <input type="file" id="mdImgFile" accept="image/*" style="display:none">
+            <button type="button" data-md="`|`|代码">代码</button>
+            <button type="button" data-md="&gt; |  |引用">引用</button>
+            <!-- 字数统计：由本页脚本更新（不动 md.js） -->
+            <span class="fh-mdcount" id="mdCount">0 字</span>
+        </div>
+
+        <!-- ============ ③ 左：Markdown 编辑区　右：实时预览区 ============ -->
+        <div class="fh-mdwrap">
+            <textarea id="mdInput" name="content" th:text="${news.content}"
+                      placeholder="在这里写正文，支持 Markdown……" aria-label="正文"></textarea>
+            <div id="mdPreview" class="fh-preview"></div>
+        </div>
+
+        <!-- ============ ④ 保存（先弹「发布文章」，确认后才真正提交） ============ -->
+        <p class="fh-savebar">
+            <button type="submit" class="fh-btn fh-btn-main" id="newsSaveBtn">保存</button>
+            <span class="fh-hint">保存后默认仍是草稿 —— 去列表点「发布」才对外可见</span>
+        </p>
+
+        <!-- ============ ⑤ 「发布文章」弹窗 ============
+             ⚠️ 刻意放在表单【内部】：
+                · 里面的控件天然属于这个表单，提交时不需要 JS 搬值（最不容易出错）
+                · 已核查 .fh-card / .fh-page 都没有 position/z-index/transform → **不形成层叠上下文**
+                  → Bootstrap 弹窗的 z-index(1055) 能正常压住遮罩(1050)
+                  （反面教材见公共外壳 layout.html 里「登录弹窗别放回导航栏」那段注释）
+             ⚠️ 字段只在这里出现一次，见文件头第 1 条约束。 -->
+        <div class="modal fade" id="publishModal" tabindex="-1" aria-labelledby="publishModalTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content fh-modal">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="publishModalTitle">发布文章</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <!-- 封面图（沿用现有上传 + 裁剪 + 预览，逻辑一行未改） -->
+                        <div class="fh-coverrow">
+                            <label for="coverFile">封面图</label>
+                            <div class="fh-cover">
+                                <input type="file" id="coverFile" accept="image/*" style="width:auto">
+                                <input type="hidden" id="coverImage" name="coverImage" th:value="${news.coverImage}">
+                                <img id="coverPreview" class="fh-coverimg" th:src="${news.coverImage}"
+                                     th:style="${news.coverImage == null} ? 'display:none' : ''" alt="封面">
+                                <span class="fh-hint" id="coverHint">选了图片会自动上传</span>
+                            </div>
+                        </div>
+
+                        <!-- 分类 -->
+                        <p class="fh-field">
+                            <label for="newsCategory">分类</label>
+                            <select id="newsCategory" name="category" style="width:auto">
+                                <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${c.label}"
+                                        th:selected="${news.category != null and news.category.name() == c.name()}">通知</option>
+                            </select>
+                        </p>
+
+                        <!-- 仅登录可见 -->
+                        <p class="fh-field">
+                            <label class="fh-inlinecheck">
+                                <input type="checkbox" name="isInternal" value="true"
+                                       th:checked="${news.isInternal}" style="width:auto"> 仅登录可见（游客看不到）
+                            </label>
+                        </p>
+
+                        <p class="fh-modalnote">
+                            保存后仍是<strong>草稿</strong> —— 去新闻列表点「发布」才对外可见。
+                        </p>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="fh-btn" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="fh-btn fh-btn-main" id="newsConfirmBtn">确认保存</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+<script th:src="@{/js/md.js}"></script>
+<!-- ⚠️【2026-10-07 修】upload.js 必须引 —— 原来漏了这个标签，
+     于是选中封面图后 fhUpload 未定义，整条上传链路静默失效（没裁剪、没上传、没回显）。 -->
+<script th:src="@{/js/upload.js}"></script>
+<script th:src="@{/js/crop.js}"></script>
+<script>
+mdInitEditor("mdInput", "mdPreview");
+
+/* ============================================================================
+   「保存」→ 先弹「发布文章」→ 确认后才真正提交
+   ============================================================================
+   【为什么用 submit 事件拦截，而不是把按钮改成 type="button"】
+     按钮保持 type="submit"，JS 只是"拦一道"。这样：
+       · JS 正常  → 拦截 → 弹窗 → 确认 → 放行
+       · JS 挂了 / Bootstrap 的 CDN 加载不到（虚拟机没外网时就是这样）
+                  → 拦截代码根本不会执行 → 浏览器**直接提交**，照样能存 ✅
+     如果按钮是 type="button"，JS 一挂就【彻底存不了】—— 这是最危险的写法。
+   ========================================================================== */
+var newsForm = document.getElementById("newsForm");
+var publishModalEl = document.getElementById("publishModal");
+var newsConfirmed = false;      /* 弹窗确认过之后置 true，submit 事件才放行 */
+
+/* 真正提交。优先 requestSubmit()：它会跑一遍 HTML5 校验（标题必填）；
+   form.submit() 不跑校验，只在老浏览器上兜底。 */
+function newsSubmitNow() {
+    if (newsForm.requestSubmit) { newsForm.requestSubmit(); } else { newsForm.submit(); }
+}
+
+newsForm.addEventListener("submit", function (ev) {
+    if (newsConfirmed) { return; }          /* 已确认 → 放行，正常提交 */
+
+    ev.preventDefault();
+
+    /* 标题为空时【不弹窗】，直接让浏览器提示 ——
+       否则校验气泡会出现在弹窗遮罩背后，用户根本看不见，只会觉得"点了没反应" */
+    if (!newsForm.reportValidity()) { return; }
+
+    if (window.bootstrap && publishModalEl) {
+        bootstrap.Modal.getOrCreateInstance(publishModalEl).show();
+    } else {
+        /* 降级：Bootstrap 没加载出来（CDN 挂了）→ 跳过弹窗，直接保存 */
+        newsConfirmed = true;
+        newsSubmitNow();
+    }
+});
+
+document.getElementById("newsConfirmBtn").addEventListener("click", function () {
+    newsConfirmed = true;
+    newsSubmitNow();
+});
+
+/* ============================================================================
+   工具栏右侧的实时字数（不动 md.js —— 它还被 news/detail.html 渲染正文用着）
+   ========================================================================== */
+(function () {
+    var ta = document.getElementById("mdInput");
+    var box = document.getElementById("mdCount");
+    if (!ta || !box) { return; }
+    function refresh() {
+        /* 去掉空白再数，跟常见编辑器的"字数"口径一致 */
+        box.textContent = ta.value.replace(/\s/g, "").length + " 字";
+    }
+    ta.addEventListener("input", refresh);
+    refresh();
+})();
+
+/* ============================================================================
+   封面图：选图 → 裁剪 3:1 → 上传 → 回填隐藏字段 + 显示预览
+   【2026-10-07 修】原来【整段都没有】—— 选了封面图没有任何代码处理它。
+   ========================================================================== */
+document.getElementById("coverFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) { return; }
+    this.value = "";                        /* 允许连续选同一个文件 */
+
+    var hint = document.getElementById("coverHint");
+    var prev = document.getElementById("coverPreview");
+    var hidden = document.getElementById("coverImage");
+
+    hint.textContent = "正在打开裁剪框…";
+    fhCrop(f, function (blob) {
+        if (!blob) { hint.textContent = "已取消，封面图没有改变"; return; }
+        hint.textContent = "正在上传…";
+        /* ⚠️ 防御一层：万一 crop.js 因为老浏览器退回裸 Blob，这里补一个带后缀的文件名。
+              （后端也有 Content-Type 兜底 —— 三道防线都不依赖"用户传的文件名对不对"） */
+        var up = (typeof File === "function" && !(blob instanceof File))
+                ? new File([blob], "cover.png", { type: "image/png" })
+                : blob;
+        fhUpload(up, function (url) {
+            hidden.value = url;
+            prev.src = url;
+            prev.style.display = "";
+            hint.textContent = "已上传 ✓ 点「确认保存」后生效";
+        }, function (msg) {
+            hint.textContent = "上传失败：" + msg;
+        });
+    });
+});
+
+/* 正文插图：点了选文件 → 上传 → 插进 Markdown 光标处 */
+document.getElementById("mdInsertImg").addEventListener("click", function () {
+    document.getElementById("mdImgFile").click();
+});
+document.getElementById("mdImgFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) { return; }
+    var ta = document.getElementById("mdInput");
+    fhUpload(f, function (url) {
+        var snippet = "![图片](" + url + ")";
+        var s = ta.selectionStart, e = ta.selectionEnd;
+        ta.value = ta.value.slice(0, s) + snippet + ta.value.slice(e);
+        ta.selectionStart = ta.selectionEnd = s + snippet.length;
+        ta.dispatchEvent(new Event("input"));
+    }, function (msg) { alert(msg); });
+    this.value = "";
+});
+</script>
+
+</body>
+</html>
